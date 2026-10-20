@@ -119,12 +119,16 @@ export default function TabsNavigation({
                     }}
                     className={`group relative flex w-full items-center gap-3.5 rounded-xl px-3.5 py-3 text-left transition-all duration-200 ${isActive
                       ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold shadow-md shadow-emerald-600/20'
+                      : tab.id === 'helpdesk'
+                      ? 'text-emerald-900 bg-emerald-50/60 hover:bg-emerald-100/80 border border-emerald-200/60'
                       : 'text-slate-600 hover:bg-emerald-50/70 hover:text-emerald-900'
                       }`}
                   >
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${isActive
                         ? 'bg-white/20 text-white'
+                        : tab.id === 'helpdesk'
+                        ? 'bg-emerald-100/90 text-emerald-700 group-hover:bg-emerald-200'
                         : 'bg-slate-100 text-slate-500 group-hover:bg-emerald-100 group-hover:text-emerald-700'
                         }`}
                     >

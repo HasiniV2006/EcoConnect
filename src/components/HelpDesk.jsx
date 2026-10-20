@@ -63,7 +63,7 @@ const DEPARTMENTS = [
     hours: 'Daily: 8:00 AM – 8:00 PM (Emergency 24h)',
     location: 'Water Works Complex, Near Sector 14 Pumping Station',
     badge: 'Water & Sewage',
-    badgeColor: 'bg-blue-50 text-blue-700 ring-blue-200',
+    badgeColor: 'bg-teal-50 text-teal-700 ring-teal-200',
     description: 'Drinking water pipeline maintenance, drainage overflows, storm drain cleaning, and water quality testing.',
   },
   {
@@ -93,11 +93,11 @@ export default function HelpDesk() {
   return (
     <div className="space-y-6 animate-fade-in max-w-6xl">
       {/* ─── Top Header Banner ─── */}
-      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-slate-800">
+      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-bold text-blue-300 ring-1 ring-blue-400/30">
-              <Building2 className="h-3.5 w-3.5 text-blue-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/30">
+              <Building2 className="h-3.5 w-3.5 text-emerald-400" />
               Municipal Directory & Helplines
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
@@ -205,9 +205,9 @@ export default function HelpDesk() {
                 <div className="flex flex-wrap items-center gap-2">
                   <a
                     href={`mailto:${dept.email}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm transition-all"
                   >
-                    <Mail className="h-3.5 w-3.5 text-blue-600" />
+                    <Mail className="h-3.5 w-3.5 text-emerald-600" />
                     <span>{dept.email}</span>
                   </a>
 
@@ -253,7 +253,7 @@ export default function HelpDesk() {
                 </a>
                 <a
                   href={`mailto:${dept.email}`}
-                  className="rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 text-xs font-bold transition-colors"
+                  className="rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-bold transition-colors"
                 >
                   Send Email
                 </a>

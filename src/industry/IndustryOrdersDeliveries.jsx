@@ -62,8 +62,8 @@ export default function IndustryOrdersDeliveries() {
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  // Delivery verification
-  const [deliveryForm, setDeliveryForm] = useState({ otp: '', actualDeliveredKg: '', notes: '' });
+  // Simple delivery confirmation state (no OTP required)
+  const [deliveryForm, setDeliveryForm] = useState({});
   const [deliveryVerifying, setDeliveryVerifying] = useState(null);
 
   const fetchOrders = useCallback(async () => {
@@ -148,29 +148,20 @@ export default function IndustryOrdersDeliveries() {
     }
   };
 
-  const handleGenerateDeliveryOtp = async (orderId) => {
-    setOtpLoading(true);
+  // Simple delivery confirmation without requiring OTP
+  const handleConfirmDelivery = async (shipment) => {
+    setDeliveryVerifying(shipment._id);
     setActionError('');
     try {
-      await api.industry.generateDeliveryOtp(orderId);
+      const formVal = deliveryForm[shipment._id] || {};
+      const deliveredKg = formVal.actualDeliveredKg || shipment.actualLoadedKg || shipment.quantityKg;
+      await api.industry.verifyDelivery(shipment._id, {
+        actualDeliveredKg: deliveredKg,
+        reconciliationNotes: formVal.notes || '',
+      });
       await fetchOrders();
     } catch (err) {
-      setActionError(err.message || 'Failed to generate delivery OTP');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const handleVerifyDelivery = async (orderId) => {
-    setDeliveryVerifying(orderId);
-    setActionError('');
-    try {
-      await api.industry.verifyDelivery(orderId, deliveryForm);
-      setDeliveryForm({ otp: '', actualDeliveredKg: '', notes: '' });
-      setDeliveryVerifying(null);
-      await fetchOrders();
-    } catch (err) {
-      setActionError(err.message || 'Failed to verify delivery');
+      setActionError(err.message || 'Failed to confirm delivery');
     } finally {
       setDeliveryVerifying(null);
     }
@@ -372,8 +363,7 @@ export default function IndustryOrdersDeliveries() {
             const canGenerateLoadingOtp = shipment.status === 'Truck Dispatched' && !shipment.loadingOtp?.verified;
             const loadingOtpGenerated = shipment.loadingOtp?.otpPlain && !shipment.loadingOtp?.verified;
             const loadingVerified = shipment.loadingOtp?.verified;
-            const canGenerateDeliveryOtp = loadingVerified && !shipment.deliveryOtp?.verified && shipment.status === 'In Transit';
-            const deliveryOtpGenerated = shipment.deliveryOtp?.otpPlain && !shipment.deliveryOtp?.verified;
+            const canConfirmDelivery = loadingVerified && shipment.status === 'In Transit';
             const trip2Locked = !loadingVerified;
 
             return (
@@ -630,23 +620,23 @@ export default function IndustryOrdersDeliveries() {
                       </div>
                     )}
 
-                    {/* ─── Delivery OTP Section (separate from loading) ────── */}
-                    {(canGenerateDeliveryOtp || deliveryOtpGenerated || shipment.deliveryOtp?.verified) && (
+                    {/* ─── Delivery Section (Simple, No OTP Required) ────── */}
+                    {(canConfirmDelivery || shipment.status === 'Delivered') && (
                       <div className={`rounded-xl border p-4 ${
-                        shipment.deliveryOtp?.verified ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+                        shipment.status === 'Delivered' ? 'bg-green-50 border-green-200' : 'bg-emerald-50 border-emerald-200'
                       }`}>
                         <div className="flex items-center gap-2 mb-3">
-                          <Shield className="h-4 w-4 text-orange-600" />
+                          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                           <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                            Delivery OTP {shipment.deliveryOtp?.verified ? '✓ Verified' : ''}
+                            Delivery Status {shipment.status === 'Delivered' ? '✓ Received & Completed' : ''}
                           </span>
                         </div>
 
-                        {shipment.deliveryOtp?.verified ? (
+                        {shipment.status === 'Delivered' ? (
                           <div className="space-y-2 text-xs">
                             <div className="flex items-center gap-2 text-green-700">
                               <CheckCircle2 className="h-4 w-4" />
-                              <span className="font-bold">Delivery verified & order completed</span>
+                              <span className="font-bold">Shipment delivered & verified at industry gate</span>
                             </div>
                             {shipment.actualDeliveredKg != null && (
                               <p className="text-slate-600">
@@ -661,75 +651,53 @@ export default function IndustryOrdersDeliveries() {
                               </p>
                             )}
                           </div>
-                        ) : deliveryOtpGenerated ? (
+                        ) : canConfirmDelivery ? (
                           <div className="space-y-3">
-                            <p className="text-xs text-slate-600">
-                              This OTP is for delivery verification when the truck arrives.
-                            </p>
-                            <div className="flex items-center gap-3">
-                              <div className="inline-flex items-center gap-2 rounded-lg bg-white border-2 border-orange-300 px-4 py-2.5">
-                                <span className="font-mono text-2xl font-black text-orange-900 tracking-[0.3em]">
-                                  {shipment.deliveryOtp.otpPlain}
-                                </span>
-                              </div>
-                              <button
-                                onClick={() => copyToClipboard(shipment.deliveryOtp.otpPlain, `delivery-${shipment._id}`)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2.5 text-xs font-bold transition-colors"
-                              >
-                                {copiedOtp === `delivery-${shipment._id}` ? (
-                                  <><Check className="h-3.5 w-3.5" /> Copied!</>
-                                ) : (
-                                  <><Copy className="h-3.5 w-3.5" /> Copy OTP</>
-                                )}
-                              </button>
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">
+                                Vehicle In Transit to Industry
+                              </p>
+                              <p className="text-xs text-slate-600 mt-0.5">
+                                Verified loaded weight from municipality: <strong>{shipment.actualLoadedKg || shipment.quantityKg} kg</strong>. Confirm arrival below once the truck arrives.
+                              </p>
                             </div>
 
-                            {/* Inline delivery verification form */}
-                            <div className="mt-3 pt-3 border-t border-orange-200">
-                              <p className="text-xs font-bold text-slate-700 mb-2">Verify Delivery</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <input
-                                  type="text"
-                                  value={deliveryForm.otp}
-                                  onChange={(e) => setDeliveryForm({ ...deliveryForm, otp: e.target.value })}
-                                  placeholder="Enter OTP"
-                                  className="rounded-lg border border-orange-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                />
+                            {/* Simple delivery confirmation form without requiring an OTP */}
+                            <div className="pt-2 border-t border-emerald-200 flex flex-wrap items-center gap-3">
+                              <div className="flex-1 min-w-[180px]">
+                                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                                  Delivered Weight (kg)
+                                </label>
                                 <input
                                   type="number"
-                                  value={deliveryForm.actualDeliveredKg}
-                                  onChange={(e) => setDeliveryForm({ ...deliveryForm, actualDeliveredKg: e.target.value })}
-                                  placeholder="Delivered weight (kg)"
-                                  className="rounded-lg border border-orange-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                  value={deliveryForm[shipment._id]?.actualDeliveredKg ?? (shipment.actualLoadedKg || shipment.quantityKg || '')}
+                                  onChange={(e) => setDeliveryForm({
+                                    ...deliveryForm,
+                                    [shipment._id]: {
+                                      ...deliveryForm[shipment._id],
+                                      actualDeliveredKg: e.target.value,
+                                    }
+                                  })}
+                                  placeholder="e.g. 500"
+                                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400"
                                 />
+                              </div>
+
+                              <div className="flex items-end">
                                 <button
-                                  onClick={() => handleVerifyDelivery(shipment._id)}
-                                  disabled={deliveryVerifying === shipment._id || !deliveryForm.otp}
-                                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-xs font-bold transition-colors disabled:opacity-50"
+                                  onClick={() => handleConfirmDelivery(shipment)}
+                                  disabled={deliveryVerifying === shipment._id}
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                                 >
                                   {deliveryVerifying === shipment._id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    <CheckCircle2 className="h-4 w-4" />
                                   )}
-                                  Verify
+                                  Confirm Delivery
                                 </button>
                               </div>
                             </div>
-                          </div>
-                        ) : canGenerateDeliveryOtp ? (
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-slate-600">
-                              Generate a delivery OTP for final verification when the truck arrives at your facility.
-                            </p>
-                            <button
-                              onClick={() => handleGenerateDeliveryOtp(shipment._id)}
-                              disabled={otpLoading}
-                              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
-                            >
-                              {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
-                              Generate Delivery OTP
-                            </button>
                           </div>
                         ) : null}
                       </div>

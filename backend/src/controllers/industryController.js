@@ -50,12 +50,52 @@ export async function getDashboard(req, res, next) {
     const activeRequestsCount = requests.filter((r) => r.status === 'Pending Review').length;
     const inTransitCount = orders.filter((o) => ['In Transit', 'Truck Dispatched'].includes(o.status)).length;
 
-    // Recent activity
-    const activity = await ActivityLog.find({
-      $or: [{ portal: 'industry' }, { portal: 'municipality' }],
+    // Procurement & Dispatch audit trail (strictly exclude citizen PII and non-procurement activities)
+    const procurementActionPatterns = [
+      /PURCHASE/i,
+      /ORDER/i,
+      /DISPATCH/i,
+      /DELIVER/i,
+      /LOADING/i,
+      /BATCH/i,
+      /STOCK/i,
+      /FREIGHT/i,
+      /TRUCK/i,
+    ];
+
+    const rawActivity = await ActivityLog.find({
+      portal: { $ne: 'citizen' },
+      $or: [
+        { portal: 'industry' },
+        { action: { $in: ['Loading Verified', 'Truck Dispatched', 'Order Delivered', 'PURCHASE_REQUEST_APPROVED', 'PURCHASE_REQUEST_REJECTED', 'PURCHASE_REQUEST_SUBMITTED', 'ORDER_DISPATCHED', 'LOADING_OTP_VERIFIED'] } },
+      ],
     })
       .sort({ createdAt: -1 })
-      .limit(6);
+      .limit(10);
+
+    // Sanitize audit records: only display necessary procurement/dispatch info, completely stripping citizen PII
+    const sanitizedActivity = rawActivity
+      .filter((item) => {
+        // Exclude citizen complaints and household pickups
+        const act = (item.action || '').toUpperCase();
+        if (act.includes('COMPLAINT') || act.includes('PICKUP') || act.includes('CITIZEN')) return false;
+        return true;
+      })
+      .slice(0, 6)
+      .map((item) => {
+        // Redact any phone numbers or email addresses
+        let cleanDesc = (item.description || '')
+          .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[Contact Protected]')
+          .replace(/(\+91[\s-]?)?[6-9]\d{9}/g, '[Contact Protected]');
+
+        return {
+          _id: item._id,
+          action: item.action,
+          description: cleanDesc,
+          timestamp: item.timestamp || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
+          createdAt: item.createdAt,
+        };
+      });
 
     res.status(200).json({
       success: true,
@@ -65,7 +105,7 @@ export async function getDashboard(req, res, next) {
         activeRequests: activeRequestsCount,
         inTransitDeliveries: inTransitCount,
       },
-      recentActivity: activity,
+      recentActivity: sanitizedActivity,
     });
   } catch (err) {
     next(err);
@@ -842,42 +882,22 @@ export async function verifyDelivery(req, res, next) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (!order.deliveryOtp?.otpHash) {
-      return res.status(400).json({ success: false, message: 'No delivery OTP has been generated' });
+    if (order.status === 'Delivered') {
+      return res.status(400).json({ success: false, message: 'Order is already marked as delivered' });
     }
 
-    if (order.deliveryOtp.verified) {
-      return res.status(400).json({ success: false, message: 'Delivery OTP already verified' });
+    // Preserve deliveryOtp record if present
+    if (order.deliveryOtp) {
+      order.deliveryOtp.verified = true;
+      order.deliveryOtp.verifiedAt = new Date();
+      order.deliveryOtp.verifiedBy = req.user._id;
     }
 
-    if (new Date() > new Date(order.deliveryOtp.expiresAt)) {
-      return res.status(400).json({ success: false, message: 'Delivery OTP expired' });
-    }
-
-    if (order.deliveryOtp.attempts >= order.deliveryOtp.maxAttempts) {
-      return res.status(400).json({ success: false, message: 'Max delivery OTP attempts exceeded' });
-    }
-
-    const inputHash = crypto.createHash('sha256').update(otp.toString()).digest('hex');
-    order.deliveryOtp.attempts += 1;
-
-    if (inputHash !== order.deliveryOtp.otpHash) {
-      await order.save();
-      const remaining = order.deliveryOtp.maxAttempts - order.deliveryOtp.attempts;
-      return res.status(400).json({
-        success: false,
-        message: `Invalid delivery OTP. ${remaining} attempt(s) remaining.`,
-      });
-    }
-
-    order.deliveryOtp.verified = true;
-    order.deliveryOtp.verifiedAt = new Date();
-    order.deliveryOtp.verifiedBy = req.user._id;
-    order.actualDeliveredKg = actualDeliveredKg ? Number(actualDeliveredKg) : order.actualLoadedKg;
+    order.actualDeliveredKg = actualDeliveredKg ? Number(actualDeliveredKg) : (order.actualLoadedKg || order.quantityKg);
 
     order.status = 'Delivered';
     order.trip2 = {
-      ...order.trip2.toObject(),
+      ...(order.trip2 ? (order.trip2.toObject ? order.trip2.toObject() : order.trip2) : {}),
       status: 'Completed',
       completedAt: new Date(),
     };
@@ -899,10 +919,10 @@ export async function verifyDelivery(req, res, next) {
     };
 
     order.timeline.push({
-      event: 'Delivery Verified',
-      description: `Delivery OTP verified. Delivered: ${order.actualDeliveredKg} kg. Weight diff: ${weightDiff >= 0 ? '+' : ''}${weightDiff} kg.`,
+      event: 'Delivery Confirmed',
+      description: `Delivery confirmed at industry facility. Delivered: ${order.actualDeliveredKg} kg. Weight diff: ${weightDiff >= 0 ? '+' : ''}${weightDiff} kg.`,
       timestamp: new Date(),
-      actor: req.user.name || 'Industry',
+      actor: req.user.name || req.user.companyName || 'Industry',
       actorRole: 'industry',
     });
 

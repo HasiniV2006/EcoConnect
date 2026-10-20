@@ -28,7 +28,15 @@ export default function IndustryOverview({ onNavigateTab }) {
           setMetricsData(res.metrics);
         }
         if (res?.recentActivity) {
-          setActivity(res.recentActivity);
+          // Strict privacy filter: ensure no citizen PII or non-procurement records are displayed in audit trail
+          const filtered = res.recentActivity.filter((item) => {
+            const desc = (item.description || '').toLowerCase();
+            const act = (item.action || '').toLowerCase();
+            if (act.includes('complaint') || act.includes('pickup') || act.includes('citizen')) return false;
+            if (desc.includes('complaint') || desc.includes('pickup request')) return false;
+            return true;
+          });
+          setActivity(filtered);
         }
       })
       .catch((err) => console.warn('Could not load industry overview:', err));
