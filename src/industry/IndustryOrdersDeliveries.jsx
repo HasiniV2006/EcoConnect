@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Truck,
   Search,
@@ -16,78 +16,44 @@ import {
   X,
   Compass,
 } from 'lucide-react';
-
-const initialShipments = [
-  {
-    id: 'SHP-2089',
-    batchId: 'BT-4018',
-    plasticType: 'PET',
-    quantity: '500 kg',
-    requestId: 'PR-1045',
-    status: 'In Transit',
-    eta: 'Today, 04:30 PM (in 2 hrs)',
-    dispatchDate: 'Oct 19, 2026 • 11:15 AM',
-    from: 'Municipal Depot Zone 4, Sector 12',
-    to: 'Green Polymer Plant #2, Peenya Industrial Area',
-    driver: 'Ramesh Kumar',
-    driverPhone: '+91 98765 43210',
-    truckNumber: 'KA-04-E-8821',
-    truckModel: 'Tata Ultra 1014 (E-Permit #EP-4912)',
-    // Progress calculation: 0 - 100%
-    // Section 1 (0-50%): Shipping
-    // Section 2 (50-100%): Delivery
-    progress: 32,
-    stage: 'Shipping',
-    shippingStatusText: 'Truck departed Municipal Depot Zone 4 • En route via NH-44',
-    deliveryStatusText: 'Awaiting arrival at destination facility',
-  },
-  {
-    id: 'SHP-2084',
-    batchId: 'BT-4009',
-    plasticType: 'PET',
-    quantity: '640 kg',
-    requestId: 'PR-1040',
-    status: 'Reaching Destination',
-    eta: 'Today, 01:15 PM (in 20 mins)',
-    dispatchDate: 'Oct 19, 2026 • 08:30 AM',
-    from: 'Municipal MRF Center Zone 3',
-    to: 'Green Polymer Plant #1, Peenya Industrial Area',
-    driver: 'Suresh Patil',
-    driverPhone: '+91 98451 22910',
-    truckNumber: 'KA-01-MJ-4109',
-    truckModel: 'Ashok Leyland Ecomet (E-Permit #EP-4890)',
-    progress: 75,
-    stage: 'Delivery',
-    shippingStatusText: 'Shipping completed • Transit cleared toll plaza at Outer Ring Rd',
-    deliveryStatusText: 'Arriving at factory gate for weighment & batch unloading',
-  },
-  {
-    id: 'SHP-2077',
-    batchId: 'BT-4015',
-    plasticType: 'PP',
-    quantity: '350 kg',
-    requestId: 'PR-1035',
-    status: 'Delivered',
-    eta: 'Completed yesterday at 05:45 PM',
-    dispatchDate: 'Oct 18, 2026 • 02:00 PM',
-    from: 'Municipal Collection Hub Zone 4',
-    to: 'Green Polymer Plant #2, Peenya Industrial Area',
-    driver: 'Anand Verma',
-    driverPhone: '+91 97412 88301',
-    truckNumber: 'KA-04-AB-1922',
-    truckModel: 'Eicher Pro 2049 (E-Permit #EP-4851)',
-    progress: 100,
-    stage: 'Delivered',
-    shippingStatusText: 'Transit completed successfully',
-    deliveryStatusText: 'Delivered & verified at factory gate • Goods Received Note #GRN-8820',
-  },
-];
+import { api } from '../api/client';
 
 export default function IndustryOrdersDeliveries() {
-  const [shipments, setShipments] = useState(initialShipments);
+  const [shipments, setShipments] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [gpsModal, setGpsModal] = useState(null);
+
+  useEffect(() => {
+    api.industry
+      .getOrders()
+      .then((res) => {
+        if (res?.shipments) {
+          const mapped = res.shipments.map((s) => ({
+            id: s.id,
+            batchId: `BATCH-${s.polymer?.substring(0, 3).toUpperCase() || 'PLAS'}`,
+            plasticType: s.polymer?.split(' ')[0] || 'PET',
+            quantity: s.quantity || `${s.quantityKg} kg`,
+            requestId: s.id,
+            status: s.status || 'In Transit',
+            eta: s.eta || 'Today, 04:30 PM',
+            dispatchDate: 'Today • 11:15 AM',
+            from: 'Municipal MRF Hub Sector 14',
+            to: s.destination || 'Unit 4, Industrial Area Phase 2',
+            driver: s.driverName || 'Suresh Kumar',
+            driverPhone: s.driverPhone || '+91 98765 43210',
+            truckNumber: s.vehicleNo || 'DL-01-AB-4921',
+            truckModel: 'Tata Ultra 1014 Heavy Logistics',
+            progress: s.status === 'Delivered' ? 100 : 45,
+            stage: s.status === 'Delivered' ? 'Delivered' : 'Shipping',
+            shippingStatusText: s.currentLocation || 'In Transit via Logistics Corridor',
+            deliveryStatusText: 'Awaiting arrival and security gate entry',
+          }));
+          setShipments(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filtered = shipments.filter((s) => {
     if (statusFilter && s.status !== statusFilter) return false;
@@ -177,7 +143,14 @@ export default function IndustryOrdersDeliveries() {
 
       {/* Shipment Cards */}
       <div className="space-y-6">
-        {filtered.map((shipment) => {
+        {filtered.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-slate-200/80 p-12 text-center text-slate-400">
+            <Truck className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+            <p className="font-semibold text-slate-600">No active shipments found</p>
+            <p className="text-xs text-slate-400 mt-1">Orders approved and dispatched by the municipality will show live GPS tracking here.</p>
+          </div>
+        ) : (
+          filtered.map((shipment) => {
           // Shipping progress: 0% to 50% normalized to 0-100% of section 1
           const shippingPct = Math.min(100, Math.round((Math.min(shipment.progress, 50) / 50) * 100));
           // Delivery progress: 50% to 100% normalized to 0-100% of section 2
@@ -381,7 +354,7 @@ export default function IndustryOrdersDeliveries() {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* Live GPS Modal */}

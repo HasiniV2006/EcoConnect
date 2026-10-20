@@ -1,82 +1,105 @@
-# ECO-CONNECT (Branded as EcoCivic)
+# ECO-CONNECT (EcoCivic) — Full Stack Citizen & Circular Economy Platform
 
-**EcoCivic** is a modular, production-ready citizen action portal built with **React**, **Vite**, **Tailwind CSS**, and **Lucide Icons**. It empowers citizens to schedule plastic pickups, track civic verification flowcharts, redeem sustainability rewards, and report local community hazards in real-time.
+A complete, database-connected civic circular economy platform built with **React 19**, **Vite 6**, **Tailwind CSS 4**, and a persistent **Express.js + MongoDB (Mongoose)** backend API with **JWT Authentication** and **Cloudinary** media storage.
 
----
-
-## 🛠️ Tech Stack & Architecture
-
-- **Framework**: React 19 + Vite 6
-- **Styling**: Tailwind CSS v4 with custom Emerald / Teal / Slate design system
-- **Icons**: Lucide React (`lucide-react`)
-- **Architecture**: Single Page Application (SPA) with tabbed navigation, dynamic state management, interactive modals, and real-time toast feedback.
+EcoConnect unifies three primary stakeholder portals with real-time data exchange:
+1. **Citizens**: Schedule doorstep plastic pickups, report civic hazards, earn civic credits (PTS), and redeem utility/transit vouchers.
+2. **Municipality**: Command Hub overview, triage and dispatch field teams to civic issues, verify collected plastic weights, update inventory, and approve industry purchase requests.
+3. **Recycling Industries**: Purchase sorted post-consumer polymers (PET, HDPE, LDPE, PP) directly from municipal recovery hubs, track orders, and monitor simulated freight GPS delivery.
 
 ---
 
-## 🚀 Running the Project
+## 🛠️ Full Stack Architecture
 
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Start the local development server
-npm run dev
-
-# 3. Build for production
-npm run build
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       EcoConnect Frontend                   │
+│   (Citizen Portal | Municipal Command | Industry Portal)    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                       Vite Proxy (/api)
+                               │
+┌──────────────────────────────▼──────────────────────────────┐
+│                    EcoConnect Backend API                   │
+│               Express.js • Node.js • Port 5000              │
+│       JWT Cookies • Multer • Mongoose ORM • Helmet          │
+└──────────────┬──────────────────────────────┬───────────────┘
+               │                              │
+         Mongoose ORM                  Cloudinary SDK
+               │                              │
+┌──────────────▼──────────────┐        ┌──────▼───────────────┐
+│     MongoDB Atlas / Local   │        │   Cloudinary Storage │
+│ (10 Synchronized Models)    │        │   (Uploads & Photos) │
+└─────────────────────────────┘        └──────────────────────┘
 ```
 
-Dev Server: `http://127.0.0.1:5173/`
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Start the Backend API
+
+```bash
+cd backend
+
+# Install dependencies (first time only)
+npm.cmd install
+
+# Configure environment variables
+# Copy .env.example to .env and configure your MongoDB connection string
+copy .env.example .env
+
+# (Optional) Seed the database with initial admin, sample records, and inventory
+npm.cmd run seed
+
+# Start backend server (starts on http://localhost:5000)
+npm.cmd start
+```
+
+### 2. Start the Frontend Dev Server
+
+In a new terminal window in the project root:
+
+```bash
+# Install frontend dependencies (if not already done)
+npm.cmd install
+
+# Start Vite dev server (starts on http://localhost:5173)
+npm.cmd run dev
+```
+
+Open `http://localhost:5173` in your browser. All requests to `/api` are automatically proxied to the backend at `http://localhost:5000`.
 
 ---
 
-## 📑 Feature Modules
+## 🔐 Default Demo Accounts
 
-### 1. Citizen Dashboard (`/src/components/Dashboard.jsx`)
-- **Welcome Banner**: Inspiring hero heading & quote with dynamic action shortcuts.
-- **Quick Metrics Grid**:
-  - ⚖️ **Recycled Weight**: `18.5 kg` (Emerald tint)
-  - 🪙 **Earned Credits**: `450 PTS` (Amber tint)
-  - 🛠️ **Resolved Issues**: `4 Closed` (Blue tint)
-  - 🚚 **Next Pickup**: `Tomorrow` (Purple tint)
+Use the persistent **EcoConnect Portals** pill at the bottom of the screen to quickly switch between all three stakeholder roles, or log in with these credentials:
 
-### 2. Plastic Pickup Request (`/src/components/PlasticPickup.jsx`)
-- **Top Action Bar**: `+ Request Plastic Pickup` button triggering the interactive booking modal.
-- **Flowchart Verification Notice**: Transparent explanation of municipal sorting and weighing stages.
-- **Request History Table**:
-  - `REQUEST ID`: (e.g., `#REQ-8892`, `#REQ-8841`)
-  - `DATE & SLOT`: (e.g., `Oct 19, 2026 (09:00 AM)`)
-  - `PLASTIC CATEGORY`: (e.g., `PET Bottles & HDPE`, `Hard Plastics`)
-  - `VERIFIED WEIGHT`: (e.g., `2.1 kg`, `Pending`)
-  - `FLOWCHART STATUS`:
-    - **Verified Yes** (Emerald badge with `CheckCircle`)
-    - **Recheck Record (No)** (Amber badge with `RefreshCw`)
-  - `REWARD OUTCOME`: Verified PTS credit (`+52 PTS Added`) or `Pending Review`.
+| Portal | Email | Password | Role |
+|---|---|---|---|
+| **Municipality** | `admin@ecoconnect.local` | `admin123` | Officer R. Vance |
+| **Citizen** | `citizen@ecoconnect.local` | `citizen123` | Arjun Mehta |
+| **Industry** | `industry@ecoconnect.local` | `industry123` | Green Polymer Industries Ltd. |
 
-### 3. Credits & Rewards (`/src/components/CreditsRewards.jsx`)
-- **Header**: Live wallet balance display (`450 PTS`).
-- **Civic Perks & Discounts**:
-  - 🚌 **Public Transit Monthly Pass Discount**: `200 PTS` (15% off municipal transit).
-  - ⚡ **Municipal Electricity Bill Rebate**: `300 PTS` ($20 / ₹150 utility deduction).
-  - 🌳 **Public Facility Access Pass**: `150 PTS` (Free access to sports complexes & civic parks).
-- **Interactive Redemption**: Deducts PTS in real-time, displays an encrypted voucher code, and allows one-click clipboard copying.
+---
 
-### 4. Civic Issue Tracker (`/src/components/ReportIssue.jsx`)
-- **Top Action Bar**: `+ Report New Issue` button opening the issue logging modal with file upload preview.
-- **Issue Tracking Card**:
-  - Status Badge: `IN PROGRESS`
-  - Issue Code: `#CIV-9012`
-  - Title: "Deep Pothole on Main Market Road"
-  - Location: `Sector 14, Near Metro Pillar #42`
-  - Photo Evidence placeholder / thumbnail preview
-  - Description: Road safety hazard details
-  - **4-Step Resolution Timeline Tracker**:
-    1. `Submitted` (Green checkmark)
-    2. `Assigned` (Green checkmark)
-    3. `In Progress` (Active Amber wrench with animation)
-    4. `Resolved` (Pending Gray flag)
+## 📦 Data Models & Cross-Portal Integration
 
-### 5. Settings Modal / Drawer (`/src/components/SettingsModal.jsx`)
-- **Profile Info**: Name, Phone, Citizen Ward ID (`WARD-SEC14-0892`), Home Address.
-- **Notifications**: Toggles for SMS alerts, Pickup Status updates, and Reward notifications.
-- **Preferences**: Dark Mode toggle and Language Selector (English, Hindi, Tamil, Telugu, Marathi).
+- **Doorstep Plastic Pickups**: When a Citizen requests a pickup, it appears in the Municipality's collection queue. When the Municipality verifies the scale weight and polymer type, credits are automatically added to the Citizen's wallet and stock is automatically added to the Municipal polymer inventory.
+- **Civic Complaints**: When a Citizen reports an issue with photo evidence, it appears in the Municipality Complaints Flow. The officer assigns a response team (e.g. Roads Crew, Electrical Squad), which immediately updates the Citizen's resolution timeline.
+- **Polymer Marketplace & Sales**: The Municipality maintains stockpiles of PET, HDPE, LDPE, and PP. Recycling Industries can inspect batches and submit purchase requests. When the Municipality approves an order, the stock is automatically deducted from inventory and a tracked delivery shipment is created.
+
+---
+
+## 🧪 Testing and Production Builds
+
+- **Backend Integration Tests**:
+  ```bash
+  cd backend
+  npm.cmd test
+  ```
+- **Frontend Production Build**:
+  ```bash
+  npm.cmd run build
+  ```

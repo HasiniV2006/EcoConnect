@@ -1,13 +1,21 @@
 import React from 'react';
-import { Menu, Bell, Radio, User } from 'lucide-react';
+import { Menu, Bell, Radio, User, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function MunicipalHeader({ activeTab, onOpenMobileMenu }) {
+  const { user, logout } = useAuth();
+
   const pageTitles = {
     command: 'Municipal Command Hub',
     complaints: 'Citizen Complaints Flow',
     collections: 'Plastic Collections & Verification',
     inventory: 'Plastic Inventory Stock',
     orders: 'Industry Orders',
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'MU';
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
 
   return (
@@ -28,12 +36,12 @@ export default function MunicipalHeader({ activeTab, onOpenMobileMenu }) {
               {pageTitles[activeTab] || 'Municipal Admin'}
             </h1>
             <p className="hidden sm:block text-xs text-slate-400">
-              EcoConnect Municipal Operations • Zone 4
+              EcoConnect Municipal Operations • {user?.ward || 'Central Command Hub'}
             </p>
           </div>
         </div>
 
-        {/* Right: Status, Bell, Officer */}
+        {/* Right: Status, Bell, Officer, Logout */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* System Status Pill */}
           <div className="hidden sm:flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1.5 border border-emerald-200/80 shadow-sm">
@@ -46,26 +54,29 @@ export default function MunicipalHeader({ activeTab, onOpenMobileMenu }) {
             </span>
           </div>
 
-          {/* Notification Bell */}
-          <button className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-800 transition-all shadow-sm">
-            <Bell className="h-4 w-4" strokeWidth={2} />
-            <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
-              5
-            </span>
-          </button>
-
           {/* Officer Avatar & Info */}
           <div className="hidden md:flex items-center gap-2.5 rounded-full bg-slate-50 border border-slate-200 px-3 py-1.5 shadow-sm">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-blue-800 text-white text-[10px] font-bold">
-              RV
+              {getInitials(user?.name)}
             </div>
             <div className="leading-tight">
-              <p className="text-[11px] font-bold text-slate-700">Officer R. Vance</p>
-              <p className="text-[10px] text-slate-400">Zone 4 Ops Chief</p>
+              <p className="text-[11px] font-bold text-slate-700">{user?.name || 'Officer R. Vance'}</p>
+              <p className="text-[10px] text-slate-400">{user?.ward || 'Ops Chief'}</p>
             </div>
           </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={() => logout && logout()}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition-all active:scale-95 shadow-sm"
+            aria-label="Log out"
+            title="Log Out"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
       </div>
     </header>
   );
 }
+

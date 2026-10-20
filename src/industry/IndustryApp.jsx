@@ -21,7 +21,7 @@ export default function IndustryApp({ onSwitchPortal }) {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'overview':
-        return <IndustryOverview />;
+        return <IndustryOverview onNavigateTab={setActiveTab} />;
       case 'marketplace':
         return <IndustryMarketplace onShowToast={showToast} />;
       case 'requests':

@@ -28,7 +28,14 @@ export default function ReportIssue({ issues, onOpenModal }) {
 
       {/* ─── Issue Cards List ─── */}
       <div className="space-y-6">
-        {filteredIssues.map((issue) => (
+        {filteredIssues.length === 0 ? (
+          <div className="rounded-2xl bg-white/95 border border-slate-200/80 p-12 text-center text-slate-400">
+            <AlertTriangle className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+            <p className="font-semibold text-slate-600">No civic issues reported yet</p>
+            <p className="text-xs text-slate-400 mt-1">Report community hazards or civic problems to initiate municipal action.</p>
+          </div>
+        ) : (
+          filteredIssues.map((issue) => (
           <div
             key={issue.id}
             className="card-hover overflow-hidden rounded-2xl bg-white/95 border border-slate-200/80 shadow-sm backdrop-blur"
@@ -165,7 +172,7 @@ export default function ReportIssue({ issues, onOpenModal }) {
               </div>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

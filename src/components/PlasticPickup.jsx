@@ -35,36 +35,44 @@ export default function PlasticPickup({ requests, onOpenModal }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {requests.map((req) => (
-                <tr key={req.id} className="group transition-colors hover:bg-emerald-50/30">
-                  <td className="px-5 py-4 font-mono font-semibold text-emerald-700">
-                    {req.id}
-                  </td>
-                  <td className="px-5 py-4 text-slate-700">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{req.date}{req.slot ? ` (${req.slot})` : ''}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={req.pickupDate ? 'font-medium text-slate-700' : 'text-slate-400 italic'}>
-                      {req.pickupDate || 'Not Scheduled'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`font-medium ${req.verified ? 'text-slate-800' : 'text-slate-400 italic'}`}>
-                      {req.weight}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right font-semibold">
-                    {req.verified ? (
-                      <span className="text-emerald-600 font-bold">{req.reward}</span>
-                    ) : (
-                      <span className="text-slate-400">{req.reward}</span>
-                    )}
+              {requests.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-5 py-12 text-center text-slate-400 text-sm">
+                    No pickup requests scheduled yet. Click "Request Plastic Pickup" to schedule doorstep collection.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                requests.map((req) => (
+                  <tr key={req.id} className="group transition-colors hover:bg-emerald-50/30">
+                    <td className="px-5 py-4 font-mono font-semibold text-emerald-700">
+                      {req.id}
+                    </td>
+                    <td className="px-5 py-4 text-slate-700">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{req.date}{req.slot ? ` (${req.slot})` : ''}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={req.pickupDate ? 'font-medium text-slate-700' : 'text-slate-400 italic'}>
+                        {req.pickupDate || 'Not Scheduled'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`font-medium ${req.verified ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                        {req.weight}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right font-semibold">
+                      {req.verified ? (
+                        <span className="text-emerald-600 font-bold">{req.reward}</span>
+                      ) : (
+                        <span className="text-slate-400">{req.reward}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

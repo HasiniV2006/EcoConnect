@@ -1,29 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Scale, Sparkles, BadgeCheck } from 'lucide-react';
 
 export default function VerifyWeightModal({ isOpen, onClose, request, onVerify }) {
-  const [measuredWeight, setMeasuredWeight] = React.useState('');
+  const [measuredWeight, setMeasuredWeight] = useState('');
+  const [polymerType, setPolymerType] = useState('PET Bottles');
+  const [notes, setNotes] = useState('');
 
   if (!isOpen || !request) return null;
 
-  const getRate = () => {
-    if (!request?.category) return 25;
-    const cat = request.category.toLowerCase();
-    if (cat.includes('pet')) return 26;
-    if (cat.includes('hdpe')) return 22;
-    if (cat.includes('ldpe')) return 18;
-    if (cat.includes('pp')) return 20;
-    return 25;
+  const polymerRates = {
+    'PET Bottles': 50,
+    'HDPE Containers': 55,
+    'LDPE Films': 35,
+    'PP Rigid': 45,
+    'Mixed Polymer': 30,
   };
 
-  const rate = getRate();
+  const rate = polymerRates[polymerType] || 40;
   const weight = parseFloat(measuredWeight) || 0;
   const credits = Math.round(weight * rate);
 
   const handleSubmit = () => {
     if (weight > 0) {
-      onVerify(request.id, { measuredWeight: weight, credits });
+      onVerify(request._id || request.id, {
+        weightKg: weight,
+        polymerType,
+        creditsAwarded: credits,
+        notes,
+      });
       setMeasuredWeight('');
+      setNotes('');
       onClose();
     }
   };
@@ -42,7 +48,7 @@ export default function VerifyWeightModal({ isOpen, onClose, request, onVerify }
         <div className="relative bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 text-white">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -53,83 +59,98 @@ export default function VerifyWeightModal({ isOpen, onClose, request, onVerify }
             Request ID: {request.id}
           </h3>
           <p className="text-xs text-blue-100 mt-1">
-            Citizen: {request.citizenName}
+            Citizen: {request.citizen || request.citizenName || 'Citizen Resident'}
           </p>
         </div>
 
         {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Citizen Estimate Reference */}
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-              Citizen Estimated Weight
-            </p>
-            <p className="text-lg font-black text-slate-800">{request.estWeight}</p>
+          {/* Polymer Category Selector */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+              Polymer Classification
+            </label>
+            <select
+              value={polymerType}
+              onChange={(e) => setPolymerType(e.target.value)}
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="PET Bottles">PET Bottles (Clear / Mineral)</option>
+              <option value="HDPE Containers">HDPE Containers (Detergent / Milk)</option>
+              <option value="LDPE Films">LDPE Films & Packaging</option>
+              <option value="PP Rigid">PP Rigid Caps & Crates</option>
+              <option value="Mixed Polymer">Mixed Polymer Bales</option>
+            </select>
           </div>
 
           {/* Measured Weight Input */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              <Scale className="inline h-3.5 w-3.5 mr-1 text-blue-600" />
-              Measured Scale Weight (kg)
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5 block">
+              Verified Scale Weight (KG)
+            </label>
+            <div className="relative">
+              <Scale className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={measuredWeight}
+                onChange={(e) => setMeasuredWeight(e.target.value)}
+                placeholder="e.g. 4.2"
+                className="w-full rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-12 py-3 text-lg font-black text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                KG
+              </span>
+            </div>
+          </div>
+
+          {/* Live Credit Calculation */}
+          <div className="rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  Calculated Civic Credit Reward
+                </p>
+                <p className="text-2xl font-black text-emerald-800 mt-0.5">
+                  +{credits} <span className="text-sm font-bold">PTS</span>
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-100 rounded px-2 py-0.5">
+                  Rate: {rate} pts/kg
+                </span>
+                <p className="text-[11px] text-emerald-700 mt-1">Automatic wallet credit</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1 block">
+              Inspection Notes (Optional)
             </label>
             <input
-              type="number"
-              step="0.1"
-              min="0"
-              value={measuredWeight}
-              onChange={(e) => setMeasuredWeight(e.target.value)}
-              placeholder="Enter weighed amount…"
-              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Clean dry bottles, sorted correctly"
+              className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* Credits Banner */}
-          <div
-            className={`rounded-xl p-4 text-center transition-all duration-300 ${
-              credits > 0
-                ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 shadow-sm'
-                : 'bg-slate-50 border border-slate-200'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Sparkles
-                className={`h-4 w-4 ${credits > 0 ? 'text-amber-500' : 'text-slate-400'}`}
-              />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Credits to Award Citizen
-              </span>
-            </div>
-            <div
-              className={`text-3xl font-black tabular-nums ${
-                credits > 0 ? 'text-amber-600' : 'text-slate-300'
-              }`}
-            >
-              {credits} <span className="text-base font-bold">PTS</span>
-            </div>
-            {weight > 0 && (
-              <p className="text-[10px] text-amber-600/70 mt-1 font-medium">
-                {weight} kg × {rate} pts/kg = {credits} PTS
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4 bg-slate-50/60">
-          <button
-            onClick={onClose}
-            className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-          >
-            Cancel
-          </button>
+          {/* Action Button */}
           <button
             onClick={handleSubmit}
             disabled={weight <= 0}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all shadow-md active:scale-[0.98] ${
+              weight > 0
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 cursor-pointer'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
           >
             <BadgeCheck className="h-4 w-4" />
-            Verify & Update Inventory
+            Confirm Weight & Award Credits
           </button>
         </div>
       </div>

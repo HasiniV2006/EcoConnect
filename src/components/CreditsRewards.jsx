@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Bus, Zap, Trees, Coins, Gift, CheckCircle, Sparkles, Tag, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bus, Zap, Trees, Coins, Gift, CheckCircle, Sparkles, Tag, Copy, Check, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { api } from '../api/client';
 
 const perks = [
   {
@@ -46,6 +47,18 @@ const perks = [
 export default function CreditsRewards({ walletPoints, onRedeem }) {
   const [redeemedVouchers, setRedeemedVouchers] = useState({});
   const [copiedId, setCopiedId] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+
+  useEffect(() => {
+    api.citizen
+      .getTransactions()
+      .then((res) => {
+        if (res?.transactions) {
+          setTransactions(res.transactions);
+        }
+      })
+      .catch(() => {});
+  }, [walletPoints]);
 
   const handleRedeem = (perk) => {
     if (walletPoints >= perk.cost && !redeemedVouchers[perk.id]) {
@@ -159,7 +172,7 @@ export default function CreditsRewards({ walletPoints, onRedeem }) {
                       disabled={!canAfford}
                       className={`w-full rounded-xl py-3 px-4 text-sm font-bold transition-all active:scale-[0.98] ${
                         canAfford
-                          ? `bg-gradient-to-r ${perk.gradient} text-white shadow-lg ${perk.shadow} hover:brightness-110`
+                          ? `bg-gradient-to-r ${perk.gradient} text-white shadow-lg ${perk.shadow} hover:brightness-110 cursor-pointer`
                           : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                       }`}
                     >
@@ -171,6 +184,53 @@ export default function CreditsRewards({ walletPoints, onRedeem }) {
             </div>
           );
         })}
+      </div>
+
+      {/* ─── Credit Transaction History ─── */}
+      <div className="overflow-hidden rounded-2xl bg-white/95 border border-slate-200/80 shadow-sm backdrop-blur p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-base font-bold text-slate-800">Credits Ledger & Activity</h3>
+          </div>
+          <span className="text-xs text-slate-500 font-medium">{transactions.length} record(s)</span>
+        </div>
+
+        {transactions.length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">No transactions recorded yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {transactions.map((tx) => (
+              <div key={tx.transactionId || tx._id} className="py-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                      tx.amount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}
+                  >
+                    {tx.amount > 0 ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{tx.description}</p>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {tx.transactionId} • {new Date(tx.createdAt || Date.now()).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span
+                    className={`text-sm font-extrabold ${
+                      tx.amount > 0 ? 'text-emerald-600' : 'text-slate-700'
+                    }`}
+                  >
+                    {tx.amount > 0 ? `+${tx.amount}` : tx.amount} PTS
+                  </span>
+                  <p className="text-[11px] text-slate-400">Bal: {tx.balanceAfter} PTS</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

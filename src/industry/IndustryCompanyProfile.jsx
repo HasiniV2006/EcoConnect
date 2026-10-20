@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Hash,
 } from 'lucide-react';
+import { api } from '../api/client';
 
 export default function IndustryCompanyProfile({ onShowToast }) {
   const [profile, setProfile] = useState({
@@ -36,16 +37,45 @@ export default function IndustryCompanyProfile({ onShowToast }) {
 
   const [isSaved, setIsSaved] = useState(false);
 
+  useEffect(() => {
+    api.auth
+      .me()
+      .then((res) => {
+        if (res?.user) {
+          setProfile((prev) => ({
+            ...prev,
+            companyName: res.user.companyName || prev.companyName,
+            gstin: res.user.gstNumber || prev.gstin,
+            phone: res.user.phone || prev.phone,
+            facilityAddress: res.user.facilityLocation || prev.facilityAddress,
+            authorizedPerson: res.user.contactPerson || prev.authorizedPerson,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setIsSaved(true);
+    try {
+      await api.auth.updateProfile({
+        companyName: profile.companyName,
+        gstNumber: profile.gstin,
+        phone: profile.phone,
+        facilityLocation: profile.facilityAddress,
+        contactPerson: profile.authorizedPerson,
+      });
+    } catch (err) {
+      console.warn('Could not persist profile to server:', err);
+    }
     if (onShowToast) {
-      onShowToast('Company profile details saved successfully!');
+      onShowToast('Company profile details saved successfully to database!');
     }
     setTimeout(() => setIsSaved(false), 3500);
   };

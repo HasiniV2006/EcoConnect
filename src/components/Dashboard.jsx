@@ -1,11 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Scale, Coins, CheckCircle2, Truck, ArrowRight, Sparkles, Recycle, AlertTriangle, Gift } from 'lucide-react';
+import { api } from '../api/client';
 
-export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
+export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
+  const [data, setData] = useState({
+    recycledWeight: '0 kg',
+    walletPoints: walletPoints,
+    resolvedIssues: '0 Closed',
+    nextPickup: 'Not Scheduled',
+  });
+
+  useEffect(() => {
+    api.citizen
+      .getDashboard()
+      .then((res) => {
+        if (res?.metrics) {
+          setData({
+            recycledWeight: `${res.metrics.recycledWeightKg} kg`,
+            walletPoints: res.metrics.walletPoints,
+            resolvedIssues: `${res.metrics.resolvedIssues} Closed`,
+            nextPickup: res.metrics.nextPickup || 'Not Scheduled',
+          });
+        }
+      })
+      .catch(() => {});
+  }, [walletPoints]);
+
   const metrics = [
     {
       title: 'Recycled Weight',
-      value: '18.5 kg',
+      value: data.recycledWeight,
       icon: Scale,
       color: 'emerald',
       bg: 'from-emerald-500/10 via-emerald-50 to-emerald-100/50',
@@ -18,7 +42,7 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
     },
     {
       title: 'Earned Credits',
-      value: `${walletPoints} PTS`,
+      value: `${data.walletPoints ?? walletPoints} PTS`,
       icon: Coins,
       color: 'amber',
       bg: 'from-amber-500/10 via-amber-50 to-amber-100/50',
@@ -31,7 +55,7 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
     },
     {
       title: 'Resolved Issues',
-      value: '4 Closed',
+      value: data.resolvedIssues,
       icon: CheckCircle2,
       color: 'blue',
       bg: 'from-blue-500/10 via-blue-50 to-blue-100/50',
@@ -39,12 +63,12 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
       ring: 'border-blue-200/80',
       textColor: 'text-blue-800',
       shadow: 'shadow-blue-600/20',
-      trend: '1 in progress',
+      trend: 'Live civic track',
       targetTab: 'report',
     },
     {
       title: 'Next Pickup',
-      value: 'Tomorrow',
+      value: data.nextPickup,
       icon: Truck,
       color: 'purple',
       bg: 'from-purple-500/10 via-purple-50 to-purple-100/50',
@@ -52,7 +76,7 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
       ring: 'border-purple-200/80',
       textColor: 'text-purple-800',
       shadow: 'shadow-purple-600/20',
-      trend: '09:00 AM slot',
+      trend: 'Doorstep pickup',
       targetTab: 'pickup',
     },
   ];
@@ -81,21 +105,21 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               onClick={() => onNavigateTab && onNavigateTab('pickup')}
-              className="inline-flex items-center gap-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 px-5 py-3 text-sm font-bold shadow-lg shadow-black/10 transition-all hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 px-5 py-3 text-sm font-bold shadow-lg shadow-black/10 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
               <Recycle className="h-4 w-4 text-emerald-600" />
               Schedule Pickup
             </button>
             <button
               onClick={() => onNavigateTab && onNavigateTab('report')}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-800/60 hover:bg-emerald-800/80 text-white border border-white/20 px-5 py-3 text-sm font-semibold transition-all hover:scale-105 active:scale-95 backdrop-blur-sm"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-800/60 hover:bg-emerald-800/80 text-white border border-white/20 px-5 py-3 text-sm font-semibold transition-all hover:scale-105 active:scale-95 backdrop-blur-sm cursor-pointer"
             >
               <AlertTriangle className="h-4 w-4 text-amber-300" />
               Report Issue
             </button>
             <button
               onClick={() => onNavigateTab && onNavigateTab('credits')}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-800/60 hover:bg-emerald-800/80 text-white border border-white/20 px-5 py-3 text-sm font-semibold transition-all hover:scale-105 active:scale-95 backdrop-blur-sm"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-800/60 hover:bg-emerald-800/80 text-white border border-white/20 px-5 py-3 text-sm font-semibold transition-all hover:scale-105 active:scale-95 backdrop-blur-sm cursor-pointer"
             >
               <Gift className="h-4 w-4 text-emerald-300" />
               Redeem Rewards
@@ -112,7 +136,7 @@ export default function Dashboard({ walletPoints = 450, onNavigateTab }) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {metrics.map((m, i) => {
+          {metrics.map((m) => {
             const Icon = m.icon;
             return (
               <div

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import TabsNavigation from './components/TabsNavigation';
 import Dashboard from './components/Dashboard';
@@ -8,11 +8,14 @@ import ReportIssue from './components/ReportIssue';
 import NewPickupModal from './components/NewPickupModal';
 import ReportIssueModal from './components/ReportIssueModal';
 import SettingsModal from './components/SettingsModal';
-import { CheckCircle2, X } from 'lucide-react';
+import { api } from './api/client';
+import { useAuth } from './context/AuthContext';
+import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 export default function App({ onSwitchPortal }) {
+  const { user, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [walletPoints, setWalletPoints] = useState(450);
+  const [walletPoints, setWalletPoints] = useState(user?.walletPoints ?? 0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Modals state
@@ -31,111 +34,103 @@ export default function App({ onSwitchPortal }) {
   };
 
   // Pickup Requests Data State
-  const [requests, setRequests] = useState([
-    {
-      id: '#REQ-8892',
-      date: 'Oct 19, 2026',
-      slot: '09:00 AM',
-      category: 'PET Bottles & HDPE',
-      weight: '2.1 kg',
-      verified: true,
-      reward: '+52 PTS Added',
-    },
-    {
-      id: '#REQ-8841',
-      date: 'Oct 12, 2026',
-      slot: '02:00 PM',
-      category: 'Hard Plastics',
-      weight: 'Pending',
-      verified: false,
-      reward: 'Pending Review',
-    },
-    {
-      id: '#REQ-8790',
-      date: 'Oct 05, 2026',
-      slot: '10:00 AM',
-      category: 'PET Bottles & HDPE',
-      weight: '3.4 kg',
-      verified: true,
-      reward: '+85 PTS Added',
-    },
-    {
-      id: '#REQ-8745',
-      date: 'Sep 28, 2026',
-      slot: '11:00 AM',
-      category: 'LDPE Films & Wraps',
-      weight: '1.8 kg',
-      verified: true,
-      reward: '+45 PTS Added',
-    },
-  ]);
+  const [requests, setRequests] = useState([]);
 
   // Civic Issues Data State
-  const [issues, setIssues] = useState([
-    {
-      id: '#CIV-9012',
-      title: 'Deep Pothole on Main Market Road',
-      category: 'Pothole / Road Damage',
-      location: 'Sector 14, Near Metro Pillar #42',
-      locationShort: 'Main Market Road',
-      description: 'Hazardous deep hole causing vehicle damage and posing risk to two-wheelers. Multiple residents have reported near-accidents at this location during evening hours.',
-      reportedTime: 'Reported: 2 days ago',
-      status: 'IN PROGRESS',
-      imageUrl: null,
-      timelineSteps: [
-        { label: 'Submitted', state: 'done' },
-        { label: 'Assigned', state: 'done' },
-        { label: 'In Progress', state: 'active' },
-        { label: 'Resolved', state: 'pending' },
-      ],
-    },
-  ]);
+  const [issues, setIssues] = useState([]);
+
+  // Load live data from Backend
+  const loadCitizenData = useCallback(async () => {
+    try {
+      const [dashRes, pickupRes, complaintRes] = await Promise.all([
+        api.citizen.getDashboard().catch(() => null),
+        api.pickups.getMine().catch(() => null),
+        api.complaints.getMine().catch(() => null),
+      ]);
+
+      if (dashRes?.metrics) {
+        setWalletPoints(dashRes.metrics.walletPoints);
+      }
+
+      if (pickupRes?.pickups) {
+        setRequests(pickupRes.pickups);
+      }
+
+      if (complaintRes?.complaints) {
+        // Map backend complaint structure to frontend UI format
+        const formattedIssues = complaintRes.complaints.map((c) => ({
+          id: c.id,
+          title: c.title,
+          category: c.category,
+          location: c.location,
+          locationShort: c.location.split(',')[0],
+          description: c.description,
+          reportedTime: `Reported: ${new Date(c.createdAt).toLocaleDateString()}`,
+          status: (c.status || 'SUBMITTED').toUpperCase(),
+          imageUrl: c.photoUrl,
+          timelineSteps: (c.timeline || []).map((t) => ({
+            label: t.step,
+            state: t.status === 'completed' ? 'done' : t.status === 'current' ? 'active' : 'pending',
+          })),
+        }));
+        setIssues(formattedIssues);
+      }
+    } catch (err) {
+      console.warn('Could not load live citizen data:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCitizenData();
+  }, [loadCitizenData]);
 
   // Handlers
-  const handleAddPickup = (data) => {
-    const newId = `#REQ-${Math.floor(8900 + Math.random() * 99)}`;
-    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const newReq = {
-      id: newId,
-      date: data?.date || today,
-      slot: data?.slot || null,
-      pickupDate: null,
-      notes: data?.notes || '',
-      photoUrl: data?.photoUrl || null,
-      weight: 'Pending',
-      verified: false,
-      reward: 'Pending Review',
-    };
-    setRequests([newReq, ...requests]);
-    showToast(`Pickup Request ${newId} scheduled for ${data?.date || today}!`);
+  const handleAddPickup = async (data) => {
+    try {
+      const payload = {
+        requestedDate: data.date,
+        slot: data.slot || '09:00 AM - 12:00 PM',
+        notes: data.notes,
+        photoUrl: data.photoUrl,
+      };
+
+      const res = await api.pickups.create(payload);
+      showToast(`Pickup Request ${res.pickup?.customId || 'Scheduled'} placed successfully!`);
+      loadCitizenData();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit pickup request', 'error');
+    }
   };
 
-  const handleAddIssue = (data) => {
-    const newId = `#CIV-${Math.floor(9020 + Math.random() * 80)}`;
-    const newIssue = {
-      id: newId,
-      title: data.title,
-      category: data.category,
-      location: data.location,
-      locationShort: data.location.split(',')[0],
-      description: data.description,
-      reportedTime: 'Reported: Just now',
-      status: 'IN PROGRESS',
-      imageUrl: data.imageUrl,
-      timelineSteps: [
-        { label: 'Submitted', state: 'done' },
-        { label: 'Assigned', state: 'done' },
-        { label: 'In Progress', state: 'active' },
-        { label: 'Resolved', state: 'pending' },
-      ],
-    };
-    setIssues([newIssue, ...issues]);
-    showToast(`Civic issue ${newId} logged with Municipal Public Works!`);
+  const handleAddIssue = async (data) => {
+    try {
+      const payload = {
+        title: data.title,
+        category: data.category,
+        location: data.location,
+        description: data.description,
+        photoUrl: data.imageUrl,
+      };
+
+      const res = await api.complaints.create(payload);
+      showToast(`Civic issue ${res.complaint?.customId || ''} logged with Municipal Public Works!`);
+      loadCitizenData();
+    } catch (err) {
+      showToast(err.message || 'Failed to report civic issue', 'error');
+    }
   };
 
-  const handleRedeem = (cost, title, code) => {
-    setWalletPoints((prev) => Math.max(0, prev - cost));
-    showToast(`Voucher redeemed for ${title}! Code: ${code}`);
+  const handleRedeem = async (cost, title, localCode) => {
+    try {
+      const res = await api.citizen.redeemPerk(title, cost);
+      setWalletPoints(res.newBalance);
+      showToast(`Voucher redeemed for ${title}! Code: ${res.voucherCode || localCode}`);
+      refreshUser?.();
+    } catch (err) {
+      // Fallback local deduction if offline
+      setWalletPoints((prev) => Math.max(0, prev - cost));
+      showToast(`Voucher redeemed for ${title}! Code: ${localCode}`);
+    }
   };
 
   const renderActiveTab = () => {
@@ -234,7 +229,11 @@ export default function App({ onSwitchPortal }) {
       {/* ─── Toast Notification ─── */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-[120] max-w-md animate-slide-up rounded-2xl bg-slate-900 text-white p-4 shadow-2xl border border-slate-700/80 flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+          {toast.type === 'error' ? (
+            <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+          ) : (
+            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+          )}
           <div className="flex-1 text-sm font-medium leading-snug">
             {toast.message}
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   AlertTriangle,
@@ -12,77 +12,77 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import AssignTeamModal from './AssignTeamModal';
-
-const initialComplaints = [
-  {
-    id: '#CIV-9012',
-    title: 'Deep Pothole on Main Market Road',
-    category: 'Pothole / Road Damage',
-    location: 'Sector 14, Near Metro Pillar #42',
-    locationShort: 'Main Market Road',
-    description:
-      'Hazardous deep hole causing vehicle damage and posing risk to two-wheelers. Multiple residents have reported near-accidents at this location during evening hours.',
-    reportedTime: '2 days ago',
-    severity: 'High',
-    status: 'Unassigned',
-    assignedTeam: null,
-    imageUrl: null,
-  },
-  {
-    id: '#CIV-9018',
-    title: 'Broken Streetlights Cluster',
-    category: 'Electrical / Lighting',
-    location: 'Avenue 9, Block C',
-    locationShort: 'Avenue 9',
-    description:
-      'A cluster of 5 streetlights have been non-functional for over a week. Residents have reported safety concerns during nighttime hours in the area.',
-    reportedTime: '5 days ago',
-    severity: 'Medium',
-    status: 'Assigned',
-    assignedTeam: 'Electrical Squad B',
-    imageUrl: null,
-  },
-  {
-    id: '#CIV-9025',
-    title: 'Overflowing Drain Near Park Entrance',
-    category: 'Drainage & Sewage',
-    location: 'Sector 14, Green Park Gate #2',
-    locationShort: 'Green Park',
-    description:
-      'Storm drain near the main park entrance is overflowing and causing waterlogging on the pedestrian path. Foul smell reported by morning walkers.',
-    reportedTime: '1 day ago',
-    severity: 'High',
-    status: 'Unassigned',
-    assignedTeam: null,
-    imageUrl: null,
-  },
-];
+import { api } from '../api/client';
 
 export default function ComplaintsFlow() {
-  const [complaints, setComplaints] = useState(initialComplaints);
+  const [complaints, setComplaints] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const fetchComplaints = () => {
+    setLoading(true);
+    api.complaints
+      .getAll()
+      .then((res) => {
+        if (res?.complaints) {
+          const formatted = res.complaints.map((c) => ({
+            _id: c._id,
+            id: c.id,
+            title: c.title,
+            category: c.category,
+            location: c.location,
+            locationShort: c.location.split(',')[0],
+            description: c.description,
+            reportedTime: new Date(c.createdAt).toLocaleDateString(),
+            severity: c.priority || 'Medium',
+            status: c.status === 'Assigned' || c.status === 'In Progress' ? 'Assigned' : c.status === 'Resolved' ? 'Resolved' : 'Unassigned',
+            assignedTeam: c.assignedTeam !== 'Unassigned' ? c.assignedTeam : null,
+            imageUrl: c.photoUrl,
+            citizen: c.citizen,
+            citizenPhone: c.citizenPhone,
+          }));
+          setComplaints(formatted);
+        }
+      })
+      .catch((err) => console.warn('Could not load municipal complaints:', err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, []);
 
   const handleOpenAssign = (complaint) => {
     setSelectedComplaint(complaint);
     setModalOpen(true);
   };
 
-  const handleAssign = (complaintId, team) => {
-    setComplaints((prev) =>
-      prev.map((c) =>
-        c.id === complaintId
-          ? { ...c, status: 'Assigned', assignedTeam: team }
-          : c
-      )
-    );
+  const handleAssign = async (complaintId, team) => {
+    try {
+      const complaintToUpdate = complaints.find((c) => c.id === complaintId || c._id === complaintId);
+      if (complaintToUpdate?._id) {
+        await api.complaints.assign(complaintToUpdate._id, team);
+      }
+      setComplaints((prev) =>
+        prev.map((c) =>
+          c.id === complaintId || c._id === complaintId
+            ? { ...c, status: 'Assigned', assignedTeam: team }
+            : c
+        )
+      );
+      fetchComplaints();
+    } catch (err) {
+      console.error('Failed to assign team:', err);
+    }
   };
 
   const filtered = complaints.filter(
     (c) =>
       c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.id.toLowerCase().includes(searchTerm.toLowerCase())
+      c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.location && c.location.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -112,140 +112,119 @@ export default function ComplaintsFlow() {
         </div>
       </div>
 
-      {/* Complaints Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filtered.map((complaint, idx) => (
-          <div
-            key={complaint.id}
-            className={`card-hover group relative overflow-hidden rounded-2xl bg-white border shadow-sm stagger-${idx + 1} ${
-              complaint.severity === 'High'
-                ? 'border-red-200/80'
-                : 'border-slate-200/80'
-            }`}
-            style={{ animationFillMode: 'both' }}
-          >
-            {/* Severity Strip */}
+      {loading && complaints.length === 0 ? (
+        <div className="py-12 text-center text-slate-400 text-sm">Loading complaints from database...</div>
+      ) : filtered.length === 0 ? (
+        <div className="py-12 text-center text-slate-400 text-sm">No complaints found.</div>
+      ) : (
+        /* Complaints Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filtered.map((complaint, idx) => (
             <div
-              className={`h-1 w-full ${
-                complaint.severity === 'High'
-                  ? 'bg-gradient-to-r from-red-500 to-rose-500'
-                  : complaint.severity === 'Medium'
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-500'
-                  : 'bg-gradient-to-r from-emerald-400 to-teal-500'
+              key={complaint.id || idx}
+              className={`card-hover group relative overflow-hidden rounded-2xl bg-white border shadow-sm ${
+                complaint.severity === 'High' || complaint.severity === 'Critical'
+                  ? 'border-red-200/80'
+                  : 'border-slate-200/80'
               }`}
-            />
+            >
+              {/* Severity Strip */}
+              <div
+                className={`h-1 w-full ${
+                  complaint.severity === 'High' || complaint.severity === 'Critical'
+                    ? 'bg-gradient-to-r from-red-500 to-rose-500'
+                    : complaint.severity === 'Medium'
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                    : 'bg-gradient-to-r from-emerald-400 to-teal-500'
+                }`}
+              />
 
-            <div className="p-5 flex flex-col justify-between h-full">
-              <div>
-                {/* Top Row: ID, Status, Severity */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 rounded-full px-2.5 py-0.5 ring-1 ring-blue-200/60">
-                    {complaint.id}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ring-1 ${
-                        complaint.severity === 'High'
-                          ? 'bg-red-50 text-red-700 ring-red-200'
-                          : complaint.severity === 'Medium'
-                          ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                          : 'bg-green-50 text-green-700 ring-green-200'
-                      }`}
-                    >
-                      {complaint.severity}
+              <div className="p-5 flex flex-col justify-between h-full">
+                <div>
+                  {/* Top Row: ID, Status, Severity */}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 rounded-full px-2.5 py-0.5 ring-1 ring-blue-200/60">
+                      {complaint.id}
                     </span>
-                    <span
-                      className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ring-1 ${
-                        complaint.status === 'Unassigned'
-                          ? 'bg-slate-100 text-slate-600 ring-slate-200'
-                          : 'bg-blue-50 text-blue-700 ring-blue-200'
-                      }`}
-                    >
-                      {complaint.status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Side-by-side layout: Image beside details */}
-                <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                  {/* Reported Issue Image / Placeholder */}
-                  <div className="shrink-0 w-full sm:w-28 sm:h-28 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
-                    {complaint.imageUrl ? (
-                      <img
-                        src={complaint.imageUrl}
-                        alt={complaint.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-1.5 p-2 text-slate-400 text-center">
-                        <ImageIcon className="h-5 w-5 text-slate-400" />
-                        <span className="text-[10px] font-medium leading-tight">
-                          No image available
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Complaint Details */}
-                  <div className="flex-1 min-w-0">
-                    {/* Title */}
-                    <h3 className="text-base font-bold text-slate-800 mb-1.5 group-hover:text-blue-700 transition-colors line-clamp-1">
-                      {complaint.title}
-                    </h3>
-
-                    {/* Description */}
-                    <p className="text-xs text-slate-500 leading-relaxed mb-3 line-clamp-2">
-                      {complaint.description}
-                    </p>
-
-                    {/* Meta Row */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                        <MapPin className="h-3 w-3 text-blue-500" />
-                        {complaint.locationShort}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ring-1 ${
+                          complaint.severity === 'High' || complaint.severity === 'Critical'
+                            ? 'bg-red-50 text-red-700 ring-red-200'
+                            : complaint.severity === 'Medium'
+                            ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                        }`}
+                      >
+                        {complaint.severity} Priority
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                        <Clock className="h-3 w-3 text-slate-400" />
-                        {complaint.reportedTime}
+                      <span
+                        className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ring-1 ${
+                          complaint.status === 'Assigned'
+                            ? 'bg-blue-50 text-blue-700 ring-blue-200'
+                            : complaint.status === 'Resolved'
+                            ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                            : 'bg-slate-100 text-slate-600 ring-slate-200'
+                        }`}
+                      >
+                        {complaint.status}
                       </span>
-                      {complaint.assignedTeam && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-0.5">
-                          <CheckCircle2 className="h-3 w-3" />
-                          {complaint.assignedTeam}
-                        </span>
-                      )}
                     </div>
                   </div>
+
+                  {/* Title & Category */}
+                  <h3 className="text-base font-bold text-slate-900 mb-1 leading-snug">
+                    {complaint.title}
+                  </h3>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">
+                      {complaint.category}
+                    </span>
+                    <span>•</span>
+                    <span>{complaint.reportedTime}</span>
+                  </div>
+
+                  {/* Location */}
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-3 bg-slate-50 rounded-lg px-2.5 py-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{complaint.location}</span>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">
+                    {complaint.description}
+                  </p>
+                </div>
+
+                {/* Bottom Row: Assigned Team / Action */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  {complaint.assignedTeam ? (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                      <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                      <span>{complaint.assignedTeam}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">No team assigned</span>
+                  )}
+
+                  <button
+                    onClick={() => handleOpenAssign(complaint)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-all active:scale-[0.97] cursor-pointer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    {complaint.assignedTeam ? 'Reassign Team' : 'Assign Team'}
+                  </button>
                 </div>
               </div>
-
-              {/* Action Button */}
-              {complaint.status === 'Unassigned' ? (
-                <button
-                  onClick={() => handleOpenAssign(complaint)}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/25 transition-all active:scale-[0.97]"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Check Details & Assign Team
-                </button>
-              ) : (
-                <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-all">
-                  <Eye className="h-4 w-4" />
-                  Review Evidence & Verify Resolution
-                </button>
-              )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Assign Team Modal */}
       <AssignTeamModal
         isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setSelectedComplaint(null);
-        }}
+        onClose={() => setModalOpen(false)}
         complaint={selectedComplaint}
         onAssign={handleAssign}
       />
