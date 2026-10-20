@@ -12,52 +12,54 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 
-const tabs = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    description: 'Dashboard Summary',
-    icon: LayoutDashboard,
-    badge: null,
-  },
-  {
-    id: 'marketplace',
-    label: 'Plastic Marketplace',
-    description: 'Browse & Procure',
-    icon: Store,
-    badge: null,
-  },
-  {
-    id: 'requests',
-    label: 'Purchase Requests',
-    description: 'Request Tracking',
-    icon: FileText,
-    badge: '2 Pending',
-    badgeColor: 'bg-amber-500',
-  },
-  {
-    id: 'deliveries',
-    label: 'Orders & Deliveries',
-    description: 'Shipment Tracking',
-    icon: Truck,
-    badge: null,
-  },
-  {
-    id: 'profile',
-    label: 'Company Profile',
-    description: 'Organization Details',
-    icon: Building2,
-    badge: null,
-  },
-];
-
 export default function IndustrySidebar({
   activeTab,
   onChangeTab,
   isOpenMobile,
   onCloseMobile,
   onSwitchPortal,
+  badges = {},
 }) {
+  const tabs = [
+    {
+      id: 'overview',
+      label: 'Overview',
+      description: 'Dashboard Summary',
+      icon: LayoutDashboard,
+      badge: null,
+    },
+    {
+      id: 'marketplace',
+      label: 'Plastic Marketplace',
+      description: 'Browse & Procure',
+      icon: Store,
+      badge: null,
+    },
+    {
+      id: 'requests',
+      label: 'Purchase Requests',
+      description: 'Request Tracking',
+      icon: FileText,
+      badge: badges?.requests > 0 ? `${badges.requests} Pending` : null,
+      badgeColor: 'bg-amber-500',
+    },
+    {
+      id: 'deliveries',
+      label: 'Orders & Deliveries',
+      description: 'Shipment Tracking',
+      icon: Truck,
+      badge: badges?.deliveries > 0 ? `${badges.deliveries} Active` : null,
+      badgeColor: 'bg-blue-600',
+    },
+    {
+      id: 'profile',
+      label: 'Company Profile',
+      description: 'Organization Details',
+      icon: Building2,
+      badge: null,
+    },
+  ];
+
   return (
     <>
       {/* Mobile Backdrop */}

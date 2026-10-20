@@ -16,6 +16,7 @@ import {
   Scale,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function IndustryOrders() {
   const [subTab, setSubTab] = useState('requests'); // 'requests' | 'loading'
@@ -44,7 +45,14 @@ export default function IndustryOrders() {
             industryName: o.company || 'Industry Partner',
             plasticType: o.polymer,
             quantity: o.quantity || `${o.quantityKg} kg`,
-            status: o.status === 'Approved' ? 'Approved' : o.status === 'Rejected' ? 'Denied' : 'Pending',
+            status:
+              o.status === 'Approved'
+                ? 'Approved'
+                : o.status === 'Fulfilled' || o.status === 'Delivered'
+                ? 'Delivered'
+                : o.status === 'Rejected' || o.status === 'Denied'
+                ? 'Denied'
+                : 'Pending',
             rate: o.rate,
             total: o.total,
           }));
@@ -308,6 +316,11 @@ export default function IndustryOrders() {
                             <CheckCircle2 className="h-3 w-3" />
                             Approved
                           </span>
+                        ) : order.status === 'Delivered' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 ring-1 ring-blue-200">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Delivered
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-200">
                             <XCircle className="h-3 w-3" />
@@ -469,7 +482,7 @@ export default function IndustryOrders() {
                                 <span className="text-slate-400 font-medium">OTP Generated</span>
                                 <p className="font-semibold text-slate-800 mt-0.5">
                                   {order.loadingOtp?.generatedAt
-                                    ? new Date(order.loadingOtp.generatedAt).toLocaleTimeString()
+                                    ? `${formatDate(order.loadingOtp.generatedAt)} ${new Date(order.loadingOtp.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                                     : '—'}
                                 </p>
                                 <p className="text-[10px] text-slate-400">
@@ -535,7 +548,7 @@ export default function IndustryOrders() {
                           <td className="px-5 py-3">
                             <span className="text-xs text-slate-500">
                               {order.loadingOtp?.verifiedAt
-                                ? new Date(order.loadingOtp.verifiedAt).toLocaleString()
+                                ? `${formatDate(order.loadingOtp.verifiedAt)} ${new Date(order.loadingOtp.verifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                                 : '—'}
                             </span>
                           </td>

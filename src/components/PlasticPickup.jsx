@@ -1,5 +1,6 @@
 import React from 'react';
 import { Clock, Calendar } from 'lucide-react';
+import { formatDate } from '../utils/dateFormat';
 
 export default function PlasticPickup({ requests, onOpenModal }) {
   return (
@@ -50,12 +51,12 @@ export default function PlasticPickup({ requests, onOpenModal }) {
                     <td className="px-5 py-4 text-slate-700">
                       <div className="flex items-center gap-1.5">
                         <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{req.date}{req.slot ? ` (${req.slot})` : ''}</span>
+                        <span>{formatDate(req.date)}</span>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       <span className={req.pickupDate ? 'font-medium text-slate-700' : 'text-slate-400 italic'}>
-                        {req.pickupDate || 'Not Scheduled'}
+                        {req.pickupDate ? formatDate(req.pickupDate) : 'Not Scheduled'}
                       </span>
                     </td>
                     <td className="px-5 py-4">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bus, Zap, Trees, Coins, Gift, CheckCircle, Sparkles, Tag, Copy, Check, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 const perks = [
   {
@@ -213,7 +214,7 @@ export default function CreditsRewards({ walletPoints, onRedeem }) {
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{tx.description}</p>
                     <p className="text-xs text-slate-400 font-mono">
-                      {tx.transactionId} • {new Date(tx.createdAt || Date.now()).toLocaleDateString()}
+                      {tx.transactionId} • {formatDate(tx.createdAt || Date.now())}
                     </p>
                   </div>
                 </div>

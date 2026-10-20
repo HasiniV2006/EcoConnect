@@ -13,60 +13,62 @@ import {
   Building2,
 } from 'lucide-react';
 
-const tabs = [
-  {
-    id: 'command',
-    label: 'Municipal Command Hub',
-    description: 'Dispatch & Operations',
-    icon: LayoutDashboard,
-    badge: null,
-  },
-  {
-    id: 'complaints',
-    label: 'Citizen Complaints Flow',
-    description: 'Issue Triage & Assignment',
-    icon: MessageSquareWarning,
-    badge: '3 Open',
-    badgeColor: 'bg-red-500',
-  },
-  {
-    id: 'collections',
-    label: 'Plastic Collections',
-    description: 'Weighbridge Verification',
-    icon: Scale,
-    badge: '2 Pending',
-    badgeColor: 'bg-amber-500',
-  },
-  {
-    id: 'inventory',
-    label: 'Plastic Inventory Stock',
-    description: 'Polymer Stock Levels',
-    icon: Boxes,
-    badge: null,
-  },
-  {
-    id: 'orders',
-    label: 'Orders',
-    description: 'Industry Material Requests',
-    icon: ShoppingBag,
-    badge: null,
-  },
-  {
-    id: 'profile',
-    label: 'Profile',
-    description: 'Municipal Office & Officer',
-    icon: Building2,
-    badge: null,
-  },
-];
-
 export default function MunicipalSidebar({
   activeTab,
   onChangeTab,
   isOpenMobile,
   onCloseMobile,
   onSwitchPortal,
+  badges = {},
 }) {
+  const tabs = [
+    {
+      id: 'command',
+      label: 'Municipal Command Hub',
+      description: 'Dispatch & Operations',
+      icon: LayoutDashboard,
+      badge: null,
+    },
+    {
+      id: 'complaints',
+      label: 'Citizen Complaints Flow',
+      description: 'Issue Triage & Assignment',
+      icon: MessageSquareWarning,
+      badge: badges?.complaints > 0 ? `${badges.complaints} Open` : null,
+      badgeColor: 'bg-red-500',
+    },
+    {
+      id: 'collections',
+      label: 'Plastic Collections',
+      description: 'Weighbridge Verification',
+      icon: Scale,
+      badge: badges?.collections > 0 ? `${badges.collections} Pending` : null,
+      badgeColor: 'bg-amber-500',
+    },
+    {
+      id: 'inventory',
+      label: 'Plastic Inventory Stock',
+      description: 'Polymer Stock Levels',
+      icon: Boxes,
+      badge: null,
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+      description: 'Industry Material Requests',
+      icon: ShoppingBag,
+      badge: badges?.orders > 0 ? `${badges.orders} Pending` : null,
+      badgeColor: 'bg-blue-600',
+    },
+    {
+      id: 'profile',
+      label: 'Profile',
+      description: 'Municipal Office & Officer',
+      icon: Building2,
+      badge: null,
+    },
+  ];
+
   return (
     <>
       {/* Mobile Backdrop */}

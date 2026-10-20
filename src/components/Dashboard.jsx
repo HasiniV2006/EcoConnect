@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Scale, Coins, CheckCircle2, Truck, ArrowRight, Sparkles, Recycle, AlertTriangle, Gift } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
   const [data, setData] = useState({
@@ -19,7 +20,10 @@ export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
             recycledWeight: `${res.metrics.recycledWeightKg} kg`,
             walletPoints: res.metrics.walletPoints,
             resolvedIssues: `${res.metrics.resolvedIssues} Closed`,
-            nextPickup: res.metrics.nextPickup || 'Not Scheduled',
+            nextPickup:
+              res.metrics.nextPickup && res.metrics.nextPickup !== 'Not Scheduled'
+                ? formatDate(res.metrics.nextPickup)
+                : 'Not Scheduled',
           });
         }
       })

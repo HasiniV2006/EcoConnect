@@ -10,6 +10,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function MunicipalCommandHub({ onNavigateTab }) {
   const [metricsData, setMetricsData] = useState({
@@ -208,8 +209,8 @@ export default function MunicipalCommandHub({ onNavigateTab }) {
           ) : (
             activityLogs.map((item, idx) => (
               <div key={idx} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50/60 transition-colors">
-                <span className="text-xs font-mono font-semibold text-slate-400 w-16 shrink-0">
-                  {item.timestamp || 'Just now'}
+                <span className="text-xs font-mono font-semibold text-slate-400 w-24 shrink-0">
+                  {formatDate(item.createdAt || item.timestamp) || 'Just now'}
                 </span>
                 <div
                   className={`h-2 w-2 rounded-full shrink-0 ${

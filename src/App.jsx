@@ -10,6 +10,7 @@ import ReportIssueModal from './components/ReportIssueModal';
 import SettingsModal from './components/SettingsModal';
 import HelpDesk from './components/HelpDesk';
 import { api } from './api/client';
+import { formatDate } from './utils/dateFormat';
 import { useAuth } from './context/AuthContext';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
@@ -67,7 +68,7 @@ export default function App({ onSwitchPortal }) {
           location: c.location,
           locationShort: c.location ? c.location.split(',')[0] : '',
           description: c.description,
-          reportedTime: `Reported: ${new Date(c.createdAt).toLocaleDateString()}`,
+          reportedTime: `Reported: ${formatDate(c.createdAt)}`,
           status: (c.status || 'SUBMITTED').toUpperCase(),
           imageUrl: c.originalPhotoUrl || c.photoUrl,
           completionPhotoUrl: c.completionPhotoUrl,
@@ -95,7 +96,6 @@ export default function App({ onSwitchPortal }) {
     try {
       const payload = {
         requestedDate: data.date,
-        slot: data.slot || '09:00 AM - 12:00 PM',
         notes: data.notes,
         photoUrl: data.photoUrl,
       };

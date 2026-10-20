@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Upload, FileText, Sparkles, Calendar } from 'lucide-react';
+import { X, Upload, FileText, Sparkles, Calendar, Loader2 } from 'lucide-react';
+import { api } from '../api/client';
 
 const getTodayString = () => {
   const d = new Date();
@@ -12,18 +13,19 @@ const getTodayString = () => {
 const formatDateForDisplay = (dateStr) => {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
-  const d = new Date(year, parseInt(month, 10) - 1, day);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${day}-${month}-${year}`;
 };
 
 export default function NewPickupModal({ isOpen, onClose, onSubmit }) {
   const [pickupDate, setPickupDate] = useState(getTodayString());
   const [notes, setNotes] = useState('');
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploadedUrl, setUploadedUrl] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -31,20 +33,37 @@ export default function NewPickupModal({ isOpen, onClose, onSubmit }) {
         setPhotoPreview(reader.result);
       };
       reader.readAsDataURL(file);
+
+      setUploadingPhoto(true);
+      try {
+        const res = await api.upload.uploadImage(file, 'citizen-pickups');
+        if (res?.url) {
+          setUploadedUrl(res.url);
+        }
+      } catch (err) {
+        console.warn('Pickup photo upload fallback to preview:', err);
+      } finally {
+        setUploadingPhoto(false);
+      }
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (onSubmit) {
+      const todayFormatted = (() => {
+        const d = new Date();
+        return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      })();
       onSubmit({
-        date: formatDateForDisplay(pickupDate) || 'Oct 20, 2026',
+        date: formatDateForDisplay(pickupDate) || todayFormatted,
         notes,
-        photoUrl: photoPreview,
+        photoUrl: uploadedUrl || photoPreview,
       });
     }
     setNotes('');
     setPhotoPreview(null);
+    setUploadedUrl(null);
     setPickupDate(getTodayString());
     onClose();
   };
@@ -52,6 +71,7 @@ export default function NewPickupModal({ isOpen, onClose, onSubmit }) {
   const handleClose = () => {
     setNotes('');
     setPhotoPreview(null);
+    setUploadedUrl(null);
     setPickupDate(getTodayString());
     onClose();
   };
@@ -136,7 +156,12 @@ export default function NewPickupModal({ isOpen, onClose, onSubmit }) {
                 onChange={handleImageChange}
                 className="hidden"
               />
-              {photoPreview ? (
+              {uploadingPhoto ? (
+                <div className="flex flex-col items-center justify-center py-4 text-eco-600">
+                  <Loader2 className="h-6 w-6 animate-spin mb-1" />
+                  <span className="text-xs font-semibold">Uploading photo to server…</span>
+                </div>
+              ) : photoPreview ? (
                 <div className="relative w-full h-32 rounded-lg overflow-hidden">
                   <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs font-semibold">

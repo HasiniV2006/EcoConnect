@@ -17,6 +17,7 @@ import AssignTeamModal from './AssignTeamModal';
 import ComplaintDetailModal from './ComplaintDetailModal';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function ComplaintsFlow({ onShowToast }) {
   const [complaints, setComplaints] = useState([]);
@@ -42,7 +43,7 @@ export default function ComplaintsFlow({ onShowToast }) {
             location: c.location,
             locationShort: c.location ? c.location.split(',')[0] : '',
             description: c.description,
-            reportedTime: new Date(c.createdAt).toLocaleDateString(),
+            reportedTime: formatDate(c.createdAt),
             severity: c.priority || 'Medium',
             status: c.status || 'Submitted',
             assignedTeam: c.assignedTeam !== 'Unassigned' ? c.assignedTeam : null,

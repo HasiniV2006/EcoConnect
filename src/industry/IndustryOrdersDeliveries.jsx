@@ -31,6 +31,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 // ─── 5 Progress Steps ────────────────────────────────────────────────────
 const STEP_LABELS = [
@@ -394,7 +395,7 @@ export default function IndustryOrdersDeliveries() {
                           Amount: <strong className="text-slate-600">₹{(shipment.totalAmount || 0).toLocaleString('en-IN')}</strong>
                         </span>
                         <span>•</span>
-                        <span>Created: <strong className="text-slate-600">{new Date(shipment.createdAt).toLocaleDateString()}</strong></span>
+                        <span>Created: <strong className="text-slate-600">{formatDate(shipment.createdAt)}</strong></span>
                       </div>
                     </div>
                   </div>
@@ -760,7 +761,7 @@ export default function IndustryOrdersDeliveries() {
                                 <p className="text-xs font-bold text-slate-800">{evt.event}</p>
                                 <p className="text-[11px] text-slate-500">{evt.description}</p>
                                 <p className="text-[10px] text-slate-400 mt-0.5">
-                                  {new Date(evt.timestamp).toLocaleString()} • {evt.actor} ({evt.actorRole})
+                                  {formatDate(evt.timestamp)} {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {evt.actor} ({evt.actorRole})
                                 </p>
                               </div>
                             </div>

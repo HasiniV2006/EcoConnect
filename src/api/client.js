@@ -138,6 +138,7 @@ export const api = {
   // ── Municipality
   municipality: {
     getDashboard: () => request('/municipality/dashboard'),
+    getNotifications: () => request('/municipality/notifications'),
     getActivityLogs: () => request('/municipality/activity-logs'),
     getInventory: () => request('/municipality/inventory'),
     getInventoryTransactions: () => request('/municipality/inventory/transactions'),
@@ -159,6 +160,7 @@ export const api = {
   // ── Industry
   industry: {
     getDashboard: () => request('/industry/dashboard'),
+    getNotifications: () => request('/industry/notifications'),
     getMarketplace: () => request('/industry/marketplace'),
     createPurchaseRequest: (data) =>
       request('/industry/purchase-requests', {

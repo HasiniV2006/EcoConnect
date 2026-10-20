@@ -48,7 +48,7 @@ export default function ReportIssueModal({ isOpen, onClose, onSubmit }) {
       }
     } catch (err) {
       console.warn('Image upload failed, fallback:', err);
-      setUploadError('Could not upload image to server');
+      setUploadError(err.message || 'Could not upload image to server');
     } finally {
       setUploading(false);
     }

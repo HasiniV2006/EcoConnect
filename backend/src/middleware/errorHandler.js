@@ -1,8 +1,29 @@
 export function errorHandler(err, req, res, next) {
   console.error('Error Handler caught:', err);
 
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let statusCode = err.statusCode || err.status || (res.statusCode === 200 ? 500 : res.statusCode);
   let message = err.message || 'Internal Server Error';
+
+  // Multer errors
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'Uploaded file is too large. Maximum allowed size is 25MB.';
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
+
+  // File filter error
+  if (err.message && err.message.includes('Only image files')) {
+    statusCode = 400;
+  }
+
+  // Payload too large
+  if (err.type === 'entity.too.large' || err.statusCode === 413) {
+    statusCode = 413;
+    message = 'Payload too large. Please upload a smaller file.';
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {

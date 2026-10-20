@@ -9,6 +9,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function IndustryPurchaseRequests() {
   const [requests, setRequests] = useState([]);
@@ -49,10 +50,16 @@ export default function IndustryPurchaseRequests() {
   const statusBadge = (status) => {
     switch (status) {
       case 'Approved':
-      case 'Fulfilled':
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-900 ring-1 ring-emerald-300">
             <CheckCircle2 className="h-3 w-3 text-emerald-700" /> Approved
+          </span>
+        );
+      case 'Fulfilled':
+      case 'Delivered':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-900 ring-1 ring-blue-300">
+            <CheckCircle2 className="h-3 w-3 text-blue-700" /> Delivered
           </span>
         );
       case 'Pending':
@@ -167,7 +174,7 @@ export default function IndustryPurchaseRequests() {
                       {req.total}
                     </td>
                     <td className="px-5 py-4 text-xs text-slate-500">
-                      {req.date}
+                      {formatDate(req.date)}
                     </td>
                     <td className="px-5 py-4 text-right">
                       {statusBadge(req.status)}

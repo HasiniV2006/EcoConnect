@@ -46,7 +46,7 @@ export async function createPickup(req, res, next) {
       ward: req.user.ward || 'Sector 14',
       address: req.user.address || 'Resident Doorstep',
       requestedDate,
-      slot: slot || '09:00 AM - 12:00 PM',
+      slot: slot || '',
       notes: notes || '',
       photoUrl: photoUrl || null,
       photoPublicId: photoPublicId || null,

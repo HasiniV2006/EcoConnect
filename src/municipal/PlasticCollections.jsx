@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import VerifyWeightModal from './VerifyWeightModal';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function PlasticCollections() {
   const [queue, setQueue] = useState([]);
@@ -109,7 +110,7 @@ export default function PlasticCollections() {
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <th className="px-5 py-4">Request ID</th>
                   <th className="px-5 py-4">Citizen & Address</th>
-                  <th className="px-5 py-4">Date & Slot</th>
+                  <th className="px-5 py-4">Pickup Date</th>
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Verified Weight</th>
                   <th className="px-5 py-4 text-right">Actions</th>
@@ -134,7 +135,7 @@ export default function PlasticCollections() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-1 text-slate-600">
                         <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{item.date} ({item.slot || 'Morning'})</span>
+                        <span>{formatDate(item.date)}</span>
                       </div>
                     </td>
                     <td className="px-5 py-4">

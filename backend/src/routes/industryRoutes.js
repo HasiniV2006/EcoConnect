@@ -15,6 +15,7 @@ import {
   verifyDelivery,
   getMunicipalityOrders,
   verifyLoadingOtp,
+  getIndustryNotifications,
 } from '../controllers/industryController.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -22,6 +23,7 @@ const router = express.Router();
 
 // ── Industry routes ──────────────────────────────────────────────────────
 router.get('/dashboard', requireAuth, requireRole('industry', 'municipality'), getDashboard);
+router.get('/notifications', requireAuth, requireRole('industry'), getIndustryNotifications);
 router.get('/marketplace', requireAuth, getMarketplace);
 router.post('/purchase-requests', requireAuth, requireRole('industry', 'municipality'), createPurchaseRequest);
 router.get('/purchase-requests/mine', requireAuth, getMyPurchaseRequests);

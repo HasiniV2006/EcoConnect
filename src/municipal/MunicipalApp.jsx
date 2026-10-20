@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import MunicipalSidebar from './MunicipalSidebar';
 import MunicipalHeader from './MunicipalHeader';
 import MunicipalCommandHub from './MunicipalCommandHub';
@@ -7,6 +7,7 @@ import PlasticCollections from './PlasticCollections';
 import PlasticInventory from './PlasticInventory';
 import IndustryOrders from './IndustryOrders';
 import MunicipalProfile from './MunicipalProfile';
+import { api } from '../api/client';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function MunicipalApp({ onSwitchPortal }) {
@@ -14,9 +15,34 @@ export default function MunicipalApp({ onSwitchPortal }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // Dynamic notification state
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [badges, setBadges] = useState({ complaints: 0, collections: 0, orders: 0 });
+
+  const loadNotifications = useCallback(() => {
+    api.municipality
+      .getNotifications()
+      .then((res) => {
+        if (res?.success) {
+          setNotificationCount(res.count || 0);
+          setNotifications(res.notifications || []);
+          if (res.badges) setBadges(res.badges);
+        }
+      })
+      .catch((err) => console.warn('Could not load municipality notifications:', err));
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [loadNotifications, activeTab]);
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 4500);
+    loadNotifications();
   };
 
   const renderActiveTab = () => {
@@ -47,6 +73,7 @@ export default function MunicipalApp({ onSwitchPortal }) {
         isOpenMobile={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
         onSwitchPortal={onSwitchPortal}
+        badges={badges}
       />
 
       {/* Main Content */}
@@ -55,6 +82,9 @@ export default function MunicipalApp({ onSwitchPortal }) {
         <MunicipalHeader
           activeTab={activeTab}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          notificationCount={notificationCount}
+          notifications={notifications}
+          onNavigateTab={setActiveTab}
         />
 
         {/* Tab Content */}

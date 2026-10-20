@@ -248,23 +248,42 @@ export async function getAllPurchaseRequests(req, res, next) {
   try {
     const requests = await PurchaseRequest.find().sort({ createdAt: -1 });
 
-    const formatted = requests.map((r) => ({
-      _id: r._id,
-      id: r.customId,
-      company: r.companyName,
-      polymer: r.polymerType,
-      quantity: `${r.quantityKg.toLocaleString()} kg`,
-      quantityKg: r.quantityKg,
-      rate: `₹${r.ratePerKg}/kg`,
-      ratePerKg: r.ratePerKg,
-      total: `₹${r.totalAmount.toLocaleString('en-IN')}`,
-      totalAmount: r.totalAmount,
-      requestedDelivery: r.requestedDelivery,
-      paymentStatus: r.paymentStatus,
-      status: r.status === 'Pending Review' ? 'Pending' : r.status,
-      reviewNotes: r.reviewNotes,
-      createdAt: r.createdAt,
-    }));
+    // Cross-reference with Order collection to ensure delivered and fulfilled requests reflect terminal status
+    const orders = await Order.find().select('purchaseRequestId status');
+    const orderStatusMap = new Map();
+    orders.forEach((o) => {
+      if (o.purchaseRequestId) {
+        orderStatusMap.set(o.purchaseRequestId.toString(), o.status);
+      }
+    });
+
+    const formatted = requests.map((r) => {
+      let finalStatus = r.status;
+      const linkedOrderStatus = orderStatusMap.get(r._id.toString());
+      if (linkedOrderStatus === 'Delivered' || finalStatus === 'Fulfilled' || finalStatus === 'Delivered') {
+        finalStatus = 'Fulfilled';
+      } else if (linkedOrderStatus) {
+        finalStatus = 'Approved';
+      }
+
+      return {
+        _id: r._id,
+        id: r.customId,
+        company: r.companyName,
+        polymer: r.polymerType,
+        quantity: `${r.quantityKg.toLocaleString()} kg`,
+        quantityKg: r.quantityKg,
+        rate: `₹${r.ratePerKg}/kg`,
+        ratePerKg: r.ratePerKg,
+        total: `₹${r.totalAmount.toLocaleString('en-IN')}`,
+        totalAmount: r.totalAmount,
+        requestedDelivery: r.requestedDelivery,
+        paymentStatus: r.paymentStatus,
+        status: finalStatus === 'Pending Review' ? 'Pending' : finalStatus,
+        reviewNotes: r.reviewNotes,
+        createdAt: r.createdAt,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -288,8 +307,12 @@ export async function approvePurchaseRequest(req, res, next) {
       return res.status(404).json({ success: false, message: 'Purchase request not found' });
     }
 
-    if (request.status === 'Approved') {
-      return res.status(400).json({ success: false, message: 'Order is already approved' });
+    if (['Approved', 'Fulfilled', 'Delivered', 'Completed'].includes(request.status)) {
+      return res.status(400).json({ success: false, message: `Order is already ${request.status.toLowerCase()} and cannot be approved again` });
+    }
+
+    if (request.status === 'Rejected') {
+      return res.status(400).json({ success: false, message: 'Order has already been rejected' });
     }
 
     // 1. Mark request approved
@@ -376,6 +399,14 @@ export async function rejectPurchaseRequest(req, res, next) {
 
     if (!request) {
       return res.status(404).json({ success: false, message: 'Purchase request not found' });
+    }
+
+    if (['Approved', 'Fulfilled', 'Delivered', 'Completed'].includes(request.status)) {
+      return res.status(400).json({ success: false, message: `Cannot reject an order that is already ${request.status.toLowerCase()}` });
+    }
+
+    if (request.status === 'Rejected') {
+      return res.status(400).json({ success: false, message: 'Order has already been rejected' });
     }
 
     request.status = 'Rejected';
@@ -1000,3 +1031,71 @@ export async function getMunicipalityOrders(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * @desc    Get real-time notification counts and items for Industry
+ * @route   GET /api/industry/notifications
+ * @access  Private (Industry)
+ */
+export async function getIndustryNotifications(req, res, next) {
+  try {
+    const industryId = req.user._id;
+    const [pendingRequests, readyOrders, inTransitOrders] = await Promise.all([
+      PurchaseRequest.find({ industryId, status: 'Pending Review' }).sort({ createdAt: -1 }),
+      Order.find({ industryId, status: 'Approved' }).sort({ createdAt: -1 }),
+      Order.find({ industryId, status: { $in: ['Truck Dispatched', 'In Transit'] } }).sort({ createdAt: -1 }),
+    ]);
+
+    const notifications = [];
+
+    readyOrders.forEach((o) => {
+      notifications.push({
+        id: `ord-${o._id}`,
+        title: 'Order Approved - Ready for Dispatch',
+        message: `Order ${o.orderId} (${o.polymer}) approved by Municipality. Please assign driver and dispatch truck.`,
+        timestamp: o.updatedAt || o.createdAt,
+        type: 'order',
+        linkTab: 'deliveries',
+      });
+    });
+
+    inTransitOrders.forEach((o) => {
+      notifications.push({
+        id: `del-${o._id}`,
+        title: 'Shipment In Progress',
+        message: `Order ${o.orderId} is currently ${o.status}. Awaiting unloading & verification.`,
+        timestamp: o.updatedAt || o.createdAt,
+        type: 'delivery',
+        linkTab: 'deliveries',
+      });
+    });
+
+    pendingRequests.forEach((r) => {
+      notifications.push({
+        id: `req-${r._id}`,
+        title: 'Purchase Request Under Review',
+        message: `Request ${r.customId} for ${r.quantityKg} kg ${r.polymerType} is awaiting municipal quota approval.`,
+        timestamp: r.createdAt,
+        type: 'request',
+        linkTab: 'requests',
+      });
+    });
+
+    // Actionable count: orders awaiting truck dispatch or in transit
+    const actionableCount = readyOrders.length + inTransitOrders.length;
+
+    res.status(200).json({
+      success: true,
+      count: actionableCount,
+      total: notifications.length,
+      badges: {
+        requests: pendingRequests.length,
+        deliveries: readyOrders.length + inTransitOrders.length,
+      },
+      notifications,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

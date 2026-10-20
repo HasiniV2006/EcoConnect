@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import IndustrySidebar from './IndustrySidebar';
 import IndustryHeader from './IndustryHeader';
 import IndustryOverview from './IndustryOverview';
@@ -6,6 +6,7 @@ import IndustryMarketplace from './IndustryMarketplace';
 import IndustryPurchaseRequests from './IndustryPurchaseRequests';
 import IndustryOrdersDeliveries from './IndustryOrdersDeliveries';
 import IndustryCompanyProfile from './IndustryCompanyProfile';
+import { api } from '../api/client';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function IndustryApp({ onSwitchPortal }) {
@@ -13,15 +14,40 @@ export default function IndustryApp({ onSwitchPortal }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // Dynamic notification state
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [badges, setBadges] = useState({ requests: 0, deliveries: 0 });
+
+  const loadNotifications = useCallback(() => {
+    api.industry
+      .getNotifications()
+      .then((res) => {
+        if (res?.success) {
+          setNotificationCount(res.count || 0);
+          setNotifications(res.notifications || []);
+          if (res.badges) setBadges(res.badges);
+        }
+      })
+      .catch((err) => console.warn('Could not load industry notifications:', err));
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [loadNotifications, activeTab]);
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 4500);
+    loadNotifications();
   };
 
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'overview':
-        return <IndustryOverview />;
+        return <IndustryOverview onNavigateTab={setActiveTab} />;
       case 'marketplace':
         return <IndustryMarketplace onShowToast={showToast} />;
       case 'requests':
@@ -31,7 +57,7 @@ export default function IndustryApp({ onSwitchPortal }) {
       case 'profile':
         return <IndustryCompanyProfile onShowToast={showToast} />;
       default:
-        return <IndustryOverview />;
+        return <IndustryOverview onNavigateTab={setActiveTab} />;
     }
   };
 
@@ -44,6 +70,7 @@ export default function IndustryApp({ onSwitchPortal }) {
         isOpenMobile={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
         onSwitchPortal={onSwitchPortal}
+        badges={badges}
       />
 
       {/* Main Content */}
@@ -52,6 +79,9 @@ export default function IndustryApp({ onSwitchPortal }) {
         <IndustryHeader
           activeTab={activeTab}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          notificationCount={notificationCount}
+          notifications={notifications}
+          onNavigateTab={setActiveTab}
         />
 
         {/* Tab Content */}

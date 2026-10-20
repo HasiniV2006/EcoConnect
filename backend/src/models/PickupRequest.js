@@ -35,7 +35,7 @@ const pickupRequestSchema = new mongoose.Schema(
     },
     slot: {
       type: String,
-      default: '09:00 AM - 12:00 PM',
+      default: '',
     },
     pickupDate: {
       type: String,

@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { formatDate } from '../utils/dateFormat';
 
 export default function PlasticInventory() {
   const [batches, setBatches] = useState([]);
@@ -208,7 +209,7 @@ export default function PlasticInventory() {
                 transactions.map((entry, idx) => (
                   <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-5 py-3 text-xs font-mono font-semibold text-slate-500">
-                      {entry.timestamp || 'Today'}
+                      {formatDate(entry.createdAt || entry.timestamp) || 'Today'}
                     </td>
                     <td className="px-5 py-3 font-semibold text-slate-800 text-xs">
                       {entry.action}

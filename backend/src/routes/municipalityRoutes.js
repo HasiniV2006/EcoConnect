@@ -4,6 +4,7 @@ import {
   getActivityLogs,
   getInventory,
   getInventoryTransactions,
+  getMunicipalityNotifications,
 } from '../controllers/municipalityController.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -21,6 +22,7 @@ router.use(requireAuth);
 router.use(requireRole('municipality'));
 
 router.get('/dashboard', getDashboard);
+router.get('/notifications', getMunicipalityNotifications);
 router.get('/activity-logs', getActivityLogs);
 router.get('/inventory', getInventory);
 router.get('/inventory/transactions', getInventoryTransactions);

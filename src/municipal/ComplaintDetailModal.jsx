@@ -53,8 +53,8 @@ export default function ComplaintDetailModal({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image file must be under 10MB');
+    if (file.size > 25 * 1024 * 1024) {
+      setError('Image file must be under 25MB');
       return;
     }
 

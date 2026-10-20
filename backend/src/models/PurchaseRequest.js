@@ -59,7 +59,7 @@ const purchaseRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending Review', 'Approved', 'Rejected', 'Fulfilled'],
+      enum: ['Pending Review', 'Approved', 'Rejected', 'Fulfilled', 'Delivered'],
       default: 'Pending Review',
     },
     reviewNotes: {
