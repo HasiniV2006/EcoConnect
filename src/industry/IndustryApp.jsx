@@ -7,9 +7,11 @@ import IndustryPurchaseRequests from './IndustryPurchaseRequests';
 import IndustryOrdersDeliveries from './IndustryOrdersDeliveries';
 import IndustryCompanyProfile from './IndustryCompanyProfile';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function IndustryApp({ onSwitchPortal }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -95,7 +97,7 @@ export default function IndustryApp({ onSwitchPortal }) {
             <span>© 2026 EcoConnect Industry Portal • Circular Plastic Procurement Network</span>
             <span className="inline-flex items-center gap-1.5 text-amber-800 font-semibold">
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-              EPR Verified Partner • Green Polymer Industries
+              EPR Verified Partner • {user?.companyName || user?.name || 'Green Polymer Industries'}
             </span>
           </div>
         </footer>

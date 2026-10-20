@@ -17,8 +17,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function IndustryCompanyProfile({ onShowToast }) {
+  const { user, setUser, updateProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -86,6 +88,27 @@ export default function IndustryCompanyProfile({ onShowToast }) {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      setProfile((prev) => ({
+        ...prev,
+        companyName: user.companyName || user.name || prev.companyName,
+        businessCategory: user.businessCategory || user.industryType || prev.businessCategory,
+        authorizedPerson: user.contactPerson || prev.authorizedPerson,
+        designation: user.designation || prev.designation,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        facilityAddress: user.facilityLocation || user.address || prev.facilityAddress,
+        city: user.city || prev.city,
+        state: user.state || prev.state,
+        pincode: user.pincode || prev.pincode,
+        polymers: user.polymers || prev.polymers,
+        gstin: user.gstNumber || prev.gstin,
+        panNumber: user.panNumber || prev.panNumber,
+      }));
+    }
+  }, [user]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
@@ -105,6 +128,7 @@ export default function IndustryCompanyProfile({ onShowToast }) {
 
     try {
       const payload = {
+        name: profile.companyName || profile.authorizedPerson || 'Green Polymer Industries',
         companyName: profile.companyName,
         businessCategory: profile.businessCategory,
         industryType: profile.businessCategory,
@@ -121,8 +145,9 @@ export default function IndustryCompanyProfile({ onShowToast }) {
         panNumber: profile.panNumber,
       };
 
-      const res = await api.auth.updateProfile(payload);
+      const res = await (updateProfile ? updateProfile(payload) : api.auth.updateProfile(payload));
       if (res?.user) {
+        if (setUser) setUser(res.user);
         setOriginalProfile({ ...profile });
       }
 

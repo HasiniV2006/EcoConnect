@@ -1,5 +1,6 @@
 import React from 'react';
-import { Menu, Coins, Settings, Bell, Sparkles } from 'lucide-react';
+import { Menu, Coins, Settings, Bell, Sparkles, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const pageTitles = {
   dashboard: 'Citizen Dashboard',
@@ -15,6 +16,11 @@ export default function Header({
   onOpenSettings,
   onOpenMobileMenu,
 }) {
+  const { user } = useAuth();
+  const citizenWard = user?.ward
+    ? (user.ward.toLowerCase().includes('ward') || user.ward.startsWith('#') ? user.ward : `Ward ${user.ward}`)
+    : 'Ward SEC-14';
+
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
       <div className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -33,13 +39,22 @@ export default function Header({
               {pageTitles[activeTab] || 'Citizen Portal'}
             </h1>
             <p className="hidden sm:block text-xs text-slate-400">
-              Municipal Corporation • Ward SEC-14
+              Municipal Corporation • {citizenWard}
             </p>
           </div>
         </div>
 
-        {/* Right Section: Wallet Badge & Settings Button */}
+        {/* Right Section: Citizen Badge, Wallet Badge & Settings Button */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {user?.name && (
+            <div className="hidden sm:flex items-center gap-2 rounded-full bg-slate-50 border border-slate-200/80 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                {user.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="truncate max-w-[120px]">{user.name}</span>
+            </div>
+          )}
+
           {/* Wallet Badge Pill */}
           <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 px-3.5 py-1.5 border border-emerald-200/80 shadow-sm transition-all hover:shadow-md">
             <Coins className="h-4 w-4 text-emerald-600" strokeWidth={2.2} />

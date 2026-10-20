@@ -148,6 +148,12 @@ export async function updateProfile(req, res, next) {
       }
     });
 
+    if (req.body.authorizedOfficer && !updates.name) updates.name = req.body.authorizedOfficer;
+    if (req.body.authorizedPerson && !updates.contactPerson) updates.contactPerson = req.body.authorizedPerson;
+    if (req.body.departmentName && !updates.department) updates.department = req.body.departmentName;
+    if (req.body.facilityAddress && !updates.facilityLocation) updates.facilityLocation = req.body.facilityAddress;
+    if (req.body.gstin && !updates.gstNumber) updates.gstNumber = req.body.gstin;
+
     const user = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,
       runValidators: true,

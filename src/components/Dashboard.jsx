@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Scale, Coins, CheckCircle2, Truck, ArrowRight, Sparkles, Recycle, AlertTriangle, Gift } from 'lucide-react';
 import { api } from '../api/client';
 import { formatDate } from '../utils/dateFormat';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
+  const { user } = useAuth();
   const [data, setData] = useState({
     recycledWeight: '0 kg',
     walletPoints: walletPoints,
@@ -100,7 +102,7 @@ export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
             <span>Overview Hub</span>
           </div>
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
-            Welcome to your Citizen Action Portal
+            Welcome{user?.name ? `, ${user.name}` : ''} to your Citizen Action Portal
           </h1>
           <p className="text-base sm:text-xl text-emerald-50 leading-relaxed font-light">
             “Empowering citizens for a cleaner, sustainable community. Separate plastic, earn rewards, and keep our city clean.”

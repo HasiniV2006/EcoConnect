@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, Bell, Radio, User, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { formatDate } from '../utils/dateFormat';
+import { useAuth } from '../context/AuthContext';
 
 export default function MunicipalHeader({
   activeTab,
@@ -9,7 +10,19 @@ export default function MunicipalHeader({
   notifications = [],
   onNavigateTab,
 }) {
+  const { user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const officerName = user?.name || user?.contactPerson || 'Officer R. Vance';
+  const officerDesignation = user?.designation || (user?.zone ? `${user.zone} Ops Chief` : 'Zone 4 Ops Chief');
+  const municipalZone = user?.zone || 'Zone 4';
+
+  const getInitials = (str) => {
+    if (!str) return 'RV';
+    const parts = str.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   const pageTitles = {
     command: 'Municipal Command Hub',
@@ -38,7 +51,7 @@ export default function MunicipalHeader({
               {pageTitles[activeTab] || 'Municipal Admin'}
             </h1>
             <p className="hidden sm:block text-xs text-slate-400">
-              EcoConnect Municipal Operations • Zone 4
+              EcoConnect Municipal Operations • {municipalZone}
             </p>
           </div>
         </div>
@@ -126,11 +139,11 @@ export default function MunicipalHeader({
           {/* Officer Avatar & Info */}
           <div className="hidden md:flex items-center gap-2.5 rounded-full bg-slate-50 border border-slate-200 px-3 py-1.5 shadow-sm">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-blue-800 text-white text-[10px] font-bold">
-              RV
+              {getInitials(officerName)}
             </div>
             <div className="leading-tight">
-              <p className="text-[11px] font-bold text-slate-700">Officer R. Vance</p>
-              <p className="text-[10px] text-slate-400">Zone 4 Ops Chief</p>
+              <p className="text-[11px] font-bold text-slate-700 truncate max-w-[130px]">{officerName}</p>
+              <p className="text-[10px] text-slate-400 truncate max-w-[130px]">{officerDesignation}</p>
             </div>
           </div>
         </div>

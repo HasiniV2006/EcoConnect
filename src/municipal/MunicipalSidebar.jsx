@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Building2,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function MunicipalSidebar({
   activeTab,
@@ -21,6 +22,16 @@ export default function MunicipalSidebar({
   onSwitchPortal,
   badges = {},
 }) {
+  const { user } = useAuth();
+  const officerName = user?.name || user?.contactPerson || 'Officer R. Vance';
+  const officerDesignation = user?.designation || (user?.zone ? `${user.zone} Operations Chief` : 'Zone 4 Operations Chief');
+
+  const getInitials = (str) => {
+    if (!str) return 'RV';
+    const parts = str.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
   const tabs = [
     {
       id: 'command',
@@ -186,15 +197,15 @@ export default function MunicipalSidebar({
             title="View Municipal Profile"
           >
             <div className="flex items-center gap-2.5 mb-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white font-bold text-xs ring-2 ring-white/30 group-hover:scale-105 transition-transform">
-                RV
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-white font-bold text-xs ring-2 ring-white/30 group-hover:scale-105 transition-transform">
+                {getInitials(officerName)}
               </div>
-              <div className="leading-tight">
-                <p className="text-[13px] font-bold flex items-center justify-between">
-                  <span>Officer R. Vance</span>
-                  <span className="text-[10px] text-blue-300 font-normal underline opacity-80 group-hover:opacity-100">View</span>
+              <div className="leading-tight min-w-0 flex-1">
+                <p className="text-[13px] font-bold flex items-center justify-between gap-1">
+                  <span className="truncate max-w-[130px]" title={officerName}>{officerName}</span>
+                  <span className="text-[10px] text-blue-300 font-normal underline opacity-80 group-hover:opacity-100 shrink-0">View</span>
                 </p>
-                <p className="text-[10.5px] text-blue-200">Zone 4 Operations Chief</p>
+                <p className="text-[10.5px] text-blue-200 truncate">{officerDesignation}</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 mt-2">

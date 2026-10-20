@@ -13,6 +13,7 @@ import {
   ArrowLeftRight,
   HelpCircle,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const tabs = [
   {
@@ -56,6 +57,19 @@ export default function TabsNavigation({
   onCloseMobile,
   onSwitchPortal,
 }) {
+  const { user } = useAuth();
+  const citizenName = user?.name || 'Arjun Mehta';
+  const citizenWard = user?.ward
+    ? (user.ward.toLowerCase().includes('ward') || user.ward.startsWith('#') ? user.ward : `Ward #${user.ward}`)
+    : 'Ward #SEC14';
+
+  const getInitials = (str) => {
+    if (!str) return 'AM';
+    const parts = str.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   return (
     <>
       {/* ─── Mobile Backdrop Overlay ─── */}
@@ -177,13 +191,13 @@ export default function TabsNavigation({
 
           {/* Citizen info & Settings button */}
           <div className="flex items-center justify-between px-2 pt-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs">
-                AM
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs ring-1 ring-emerald-200">
+                {getInitials(citizenName)}
               </div>
-              <div className="leading-tight">
-                <p className="text-xs font-bold text-slate-800">Arjun Mehta</p>
-                <p className="text-[10px] text-slate-400">Ward #SEC14</p>
+              <div className="leading-tight min-w-0">
+                <p className="text-xs font-bold text-slate-800 truncate max-w-[125px]" title={citizenName}>{citizenName}</p>
+                <p className="text-[10px] text-slate-400 truncate max-w-[125px]">{citizenWard}</p>
               </div>
             </div>
 

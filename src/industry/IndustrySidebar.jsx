@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ArrowLeftRight,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function IndustrySidebar({
   activeTab,
@@ -20,6 +21,16 @@ export default function IndustrySidebar({
   onSwitchPortal,
   badges = {},
 }) {
+  const { user } = useAuth();
+  const companyName = user?.companyName || user?.name || 'Green Polymer Ind.';
+  const roleTitle = user?.designation || user?.contactPerson || 'Procurement Manager';
+
+  const getInitials = (str) => {
+    if (!str) return 'GP';
+    const parts = str.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
   const tabs = [
     {
       id: 'overview',
@@ -177,14 +188,21 @@ export default function IndustrySidebar({
         {/* Bottom: Company Card & Portal Switcher */}
         <div className="p-3.5 border-t border-slate-100 bg-slate-50/60 space-y-3">
           {/* Company Info Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-amber-100 via-yellow-100 to-amber-200 border border-amber-300/80 p-3.5 text-slate-900 shadow-md shadow-amber-300/15">
+          <div
+            onClick={() => onChangeTab('profile')}
+            className="rounded-2xl bg-gradient-to-br from-amber-100 via-yellow-100 to-amber-200 border border-amber-300/80 p-3.5 text-slate-900 shadow-md shadow-amber-300/15 cursor-pointer hover:ring-2 hover:ring-amber-400/60 transition-all group"
+            title="View Company Profile"
+          >
             <div className="flex items-center gap-2.5 mb-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-300 text-slate-900 font-black text-xs ring-2 ring-amber-400/60">
-                GP
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-300 text-slate-900 font-black text-xs ring-2 ring-amber-400/60 group-hover:scale-105 transition-transform">
+                {getInitials(companyName)}
               </div>
-              <div className="leading-tight">
-                <p className="text-[13px] font-bold text-slate-900">Green Polymer Ind.</p>
-                <p className="text-[10.5px] text-amber-900 font-medium">Procurement Manager</p>
+              <div className="leading-tight min-w-0 flex-1">
+                <p className="text-[13px] font-bold text-slate-900 flex items-center justify-between gap-1">
+                  <span className="truncate max-w-[130px]" title={companyName}>{companyName}</span>
+                  <span className="text-[10px] text-amber-900/70 font-normal underline group-hover:opacity-100 shrink-0">View</span>
+                </p>
+                <p className="text-[10.5px] text-amber-900 font-medium truncate">{roleTitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 mt-2">

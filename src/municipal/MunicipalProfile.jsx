@@ -18,8 +18,10 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function MunicipalProfile({ onShowToast }) {
+  const { user, setUser, updateProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +83,26 @@ export default function MunicipalProfile({ onShowToast }) {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      setProfile((prev) => ({
+        ...prev,
+        municipalityId: user._id ? `MUN-${user._id.slice(-4).toUpperCase()}` : prev.municipalityId,
+        departmentName: user.department || user.companyName || prev.departmentName,
+        authorizedOfficer: user.name || user.contactPerson || prev.authorizedOfficer,
+        designation: user.designation || prev.designation,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        zone: user.zone || user.ward || prev.zone,
+        ward: user.ward || prev.ward,
+        officeAddress: user.officeAddress || user.address || prev.officeAddress,
+        city: user.city || prev.city,
+        state: user.state || prev.state,
+        pincode: user.pincode || prev.pincode,
+      }));
+    }
+  }, [user]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
@@ -115,8 +137,9 @@ export default function MunicipalProfile({ onShowToast }) {
         pincode: profile.pincode,
       };
 
-      const res = await api.auth.updateProfile(payload);
+      const res = await (updateProfile ? updateProfile(payload) : api.auth.updateProfile(payload));
       if (res?.user) {
+        if (setUser) setUser(res.user);
         setOriginalProfile({ ...profile });
       }
 

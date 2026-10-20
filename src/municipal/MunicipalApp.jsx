@@ -8,9 +8,11 @@ import PlasticInventory from './PlasticInventory';
 import IndustryOrders from './IndustryOrders';
 import MunicipalProfile from './MunicipalProfile';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function MunicipalApp({ onSwitchPortal }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('command');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -95,10 +97,10 @@ export default function MunicipalApp({ onSwitchPortal }) {
         {/* Footer */}
         <footer className="border-t border-slate-200/80 bg-white/60 py-5 text-center text-xs text-slate-500 backdrop-blur">
           <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span>© 2026 EcoCivic Municipal Admin. Environmental & Sanitation Dept.</span>
+            <span>© 2026 EcoCivic Municipal Admin. {user?.department || 'Environmental & Sanitation Dept.'}</span>
             <span className="inline-flex items-center gap-1.5 text-blue-700 font-semibold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Dispatch System Active • Zone 4 Operations
+              Dispatch System Active • {user?.zone || 'Zone 4'} Operations
             </span>
           </div>
         </footer>

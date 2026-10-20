@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, Bell, Search, ChevronRight, X } from 'lucide-react';
 import { formatDate } from '../utils/dateFormat';
+import { useAuth } from '../context/AuthContext';
 
 export default function IndustryHeader({
   activeTab,
@@ -9,7 +10,18 @@ export default function IndustryHeader({
   notifications = [],
   onNavigateTab,
 }) {
+  const { user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const companyName = user?.companyName || user?.name || 'Green Polymer Industries';
+  const roleTitle = user?.designation || user?.contactPerson || 'Procurement Mgr';
+
+  const getInitials = (str) => {
+    if (!str) return 'GP';
+    const parts = str.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   const pageTitles = {
     overview: 'Industry Overview',
@@ -37,7 +49,7 @@ export default function IndustryHeader({
               {pageTitles[activeTab] || 'Industry Dashboard'}
             </h1>
             <p className="hidden sm:block text-xs text-slate-400">
-              EcoConnect Industry Operations • Green Polymer Industries
+              EcoConnect Industry Operations • {companyName}
             </p>
           </div>
         </div>
@@ -124,11 +136,11 @@ export default function IndustryHeader({
           {/* Company Avatar & Info */}
           <div className="hidden md:flex items-center gap-2.5 rounded-full bg-slate-50 border border-slate-200 px-3 py-1.5 shadow-sm">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-900 text-[10px] font-extrabold shadow-sm">
-              GP
+              {getInitials(companyName)}
             </div>
             <div className="leading-tight">
-              <p className="text-[11px] font-bold text-slate-700">Green Polymer Ind.</p>
-              <p className="text-[10px] text-slate-400">Procurement Mgr</p>
+              <p className="text-[11px] font-bold text-slate-700 truncate max-w-[130px]" title={companyName}>{companyName}</p>
+              <p className="text-[10px] text-slate-400 truncate max-w-[130px]">{roleTitle}</p>
             </div>
           </div>
         </div>
