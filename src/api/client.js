@@ -128,6 +128,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, resolutionNotes }),
       }),
+    completeWork: (id, completionData) =>
+      request(`/complaints/${id}/complete`, {
+        method: 'PATCH',
+        body: JSON.stringify(completionData),
+      }),
   },
 
   // ── Municipality
@@ -143,6 +148,12 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ reason }),
       }),
+    getOrders: () => request('/municipality/orders'),
+    verifyLoadingOtp: (id, data) =>
+      request(`/municipality/orders/${id}/verify-loading`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // ── Industry
@@ -156,6 +167,28 @@ export const api = {
       }),
     getMyPurchaseRequests: () => request('/industry/purchase-requests/mine'),
     getOrders: () => request('/industry/orders'),
+    updateDriver: (id, data) =>
+      request(`/industry/orders/${id}/driver`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    dispatchTruck: (id) =>
+      request(`/industry/orders/${id}/dispatch`, {
+        method: 'PATCH',
+      }),
+    generateLoadingOtp: (id) =>
+      request(`/industry/orders/${id}/loading-otp`, {
+        method: 'POST',
+      }),
+    generateDeliveryOtp: (id) =>
+      request(`/industry/orders/${id}/delivery-otp`, {
+        method: 'POST',
+      }),
+    verifyDelivery: (id, data) =>
+      request(`/industry/orders/${id}/verify-delivery`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // ── Upload

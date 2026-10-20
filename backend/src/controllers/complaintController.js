@@ -39,7 +39,8 @@ export async function createComplaint(req, res, next) {
       category,
       location,
       description,
-      photoUrl: photoUrl || null,
+      originalPhotoUrl: photoUrl || req.body.originalPhotoUrl || null,
+      photoUrl: photoUrl || req.body.originalPhotoUrl || null,
       photoPublicId: photoPublicId || null,
       status: 'Submitted',
       priority: priority || 'Medium',
@@ -85,7 +86,13 @@ export async function getMyComplaints(req, res, next) {
       description: c.description,
       status: c.status,
       priority: c.priority,
-      photoUrl: c.photoUrl,
+      originalPhotoUrl: c.originalPhotoUrl || c.photoUrl,
+      photoUrl: c.originalPhotoUrl || c.photoUrl,
+      completionPhotoUrl: c.completionPhotoUrl || null,
+      completionDescription: c.completionDescription || '',
+      completionRemarks: c.completionRemarks || '',
+      completedBy: c.completedBy || '',
+      completedAt: c.completedAt || null,
       assignedTeam: c.assignedTeam,
       timeline: c.timeline,
       date: c.createdAt.toISOString().split('T')[0],
@@ -129,9 +136,16 @@ export async function getAllComplaints(req, res, next) {
       priority: c.priority,
       assignedTeam: c.assignedTeam || 'Unassigned',
       citizen: c.citizenName || (c.citizenId && c.citizenId.name) || 'Resident',
+      citizenId: c.citizenId?._id || c.citizenId || null,
       citizenPhone: c.citizenPhone || (c.citizenId && c.citizenId.phone) || '',
       ward: c.ward,
-      photoUrl: c.photoUrl,
+      originalPhotoUrl: c.originalPhotoUrl || c.photoUrl,
+      photoUrl: c.originalPhotoUrl || c.photoUrl,
+      completionPhotoUrl: c.completionPhotoUrl || null,
+      completionDescription: c.completionDescription || '',
+      completionRemarks: c.completionRemarks || '',
+      completedBy: c.completedBy || '',
+      completedAt: c.completedAt || null,
       timeline: c.timeline,
       createdAt: c.createdAt,
     }));
@@ -258,3 +272,83 @@ export async function updateComplaintStatus(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * @desc    Submit completion proof with mandatory photograph and work description
+ * @route   PATCH /api/complaints/:id/complete
+ * @access  Private (Municipality)
+ */
+export async function completeWork(req, res, next) {
+  try {
+    const { completionPhotoUrl, completionDescription, remarks } = req.body;
+
+    if (!completionPhotoUrl || !completionPhotoUrl.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid completion photograph is mandatory to mark work as completed',
+      });
+    }
+
+    if (!completionDescription || !completionDescription.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a work completion description',
+      });
+    }
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    complaint.completionPhotoUrl = completionPhotoUrl.trim();
+    complaint.completionDescription = completionDescription.trim();
+    if (remarks) complaint.completionRemarks = remarks.trim();
+    complaint.completedBy = req.user.name || 'Municipal Officer';
+    complaint.completedAt = now;
+    complaint.resolvedAt = now;
+    complaint.status = 'Resolved';
+
+    complaint.timeline = complaint.timeline.map((s) => {
+      const stepName = s.step || '';
+      if (stepName.includes('Site Inspection') || stepName.includes('Inspection')) {
+        return { ...s.toObject(), status: 'completed', date: s.date === 'In Progress' ? todayStr : s.date, time: timeStr };
+      }
+      if (stepName.includes('Resolved') || stepName.includes('Issue Resolved') || stepName.includes('Completed')) {
+        return { step: 'Work Completed & Verified', date: todayStr, time: timeStr, status: 'completed' };
+      }
+      return { ...s.toObject(), status: 'completed' };
+    });
+
+    await complaint.save();
+
+    // Log Activity
+    await ActivityLog.create({
+      logId: `ACT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      action: 'Work Completed',
+      portal: 'municipality',
+      userId: req.user._id,
+      actorName: req.user.name || 'Officer R. Vance',
+      description: `Completed work on ${complaint.customId} (${complaint.title}) with verification photograph`,
+      details: {
+        complaintId: complaint.customId,
+        completionPhotoUrl,
+        completionDescription,
+        completedBy: complaint.completedBy,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Work completion proof submitted successfully. Complaint marked as Resolved.',
+      complaint,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [portal, setPortal] = useState('citizen');
 
-  // Check current session on mount (does NOT auto-login if no session exists)
+  // Check current session on mount
   useEffect(() => {
     checkAuth();
   }, []);
@@ -16,99 +16,72 @@ export function AuthProvider({ children }) {
   const checkAuth = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('ecoconnect_token');
-      if (!token) {
-        setUser(null);
-        return;
-      }
-
       const res = await api.auth.me();
+      if (res.user) {
+        setUser(res.user);
+        setPortal(res.user.role);
+      }
+    } catch {
+      // If no session exists, default demo login for citizen
+      try {
+        const demoRes = await api.auth.demoLogin('citizen');
+        if (demoRes.user) {
+          setUser(demoRes.user);
+          setPortal('citizen');
+        }
+      } catch (e) {
+        console.warn('Backend not yet reachable on startup:', e.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchPortalUser = async (targetRole) => {
+    setLoading(true);
+    const normalizedRole = targetRole === 'municipal' ? 'municipality' : targetRole;
+    try {
+      const res = await api.auth.demoLogin(normalizedRole);
       if (res?.user) {
         setUser(res.user);
-        setPortal(res.user.role || 'citizen');
-      } else {
-        setUser(null);
+        if (res.token) {
+          localStorage.setItem('ecoconnect_token', res.token);
+        }
       }
     } catch (err) {
-      console.warn('Session check:', err.message);
-      localStorage.removeItem('ecoconnect_token');
-      setUser(null);
+      console.error(`Failed to switch to ${normalizedRole}:`, err);
     } finally {
+      setPortal(normalizedRole);
       setLoading(false);
     }
   };
 
   const login = async (credentials) => {
-    setLoading(true);
-    try {
-      const res = await api.auth.login(credentials);
-      if (res?.user) {
-        setUser(res.user);
-        setPortal(res.user.role || 'citizen');
-      }
-      return res;
-    } finally {
-      setLoading(false);
+    const res = await api.auth.login(credentials);
+    if (res.user) {
+      setUser(res.user);
+      setPortal(res.user.role);
     }
-  };
-
-  const quickRoleLogin = async (targetRole) => {
-    setLoading(true);
-    const roleEmails = {
-      citizen: 'citizen@ecoconnect.local',
-      municipality: 'admin@ecoconnect.local',
-      industry: 'industry@ecoconnect.local',
-    };
-
-    try {
-      // First attempt authentic login with standard credentials
-      const email = roleEmails[targetRole] || `${targetRole}@ecoconnect.local`;
-      let res;
-      try {
-        res = await api.auth.login({ email, password: 'password123' });
-      } catch {
-        // Fall back to server-side demoLogin if password hash needs syncing
-        res = await api.auth.demoLogin(targetRole);
-      }
-
-      if (res?.user) {
-        setUser(res.user);
-        setPortal(res.user.role || targetRole);
-      }
-      return res;
-    } finally {
-      setLoading(false);
-    }
+    return res;
   };
 
   const register = async (userData) => {
-    setLoading(true);
-    try {
-      const res = await api.auth.register(userData);
-      if (res?.user) {
-        setUser(res.user);
-        setPortal(res.user.role || 'citizen');
-      }
-      return res;
-    } finally {
-      setLoading(false);
+    const res = await api.auth.register(userData);
+    if (res.user) {
+      setUser(res.user);
+      setPortal(res.user.role);
     }
+    return res;
   };
 
   const logout = async () => {
-    try {
-      await api.auth.logout();
-    } catch (e) {
-      console.warn('Logout request error:', e.message);
-    } finally {
-      localStorage.removeItem('ecoconnect_token');
-      setUser(null);
-    }
+    await api.auth.logout();
+    setUser(null);
   };
 
   const updateProfile = async (data) => {
     const res = await api.auth.updateProfile(data);
-    if (res?.user) {
+    if (res.user) {
       setUser(res.user);
     }
     return res;
@@ -121,11 +94,10 @@ export function AuthProvider({ children }) {
         setUser,
         loading,
         portal,
-        setPortal,
+        setPortal: switchPortalUser,
         login,
         register,
         logout,
-        quickRoleLogin,
         updateProfile,
         refreshUser: checkAuth,
       }}
@@ -142,4 +114,3 @@ export function useAuth() {
   }
   return context;
 }
-

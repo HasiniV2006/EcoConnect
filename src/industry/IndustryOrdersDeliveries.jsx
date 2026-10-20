@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Truck,
   Search,
   ChevronDown,
+  ChevronRight,
   Navigation,
   MapPin,
   Clock,
@@ -12,92 +13,284 @@ import {
   User,
   Shield,
   ArrowRight,
+  ArrowLeftRight,
   ExternalLink,
   X,
   Compass,
+  Copy,
+  Check,
+  Edit3,
+  Save,
+  Key,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  Hash,
+  Phone,
+  FileText,
+  Circle,
 } from 'lucide-react';
 import { api } from '../api/client';
+
+// ─── 5 Progress Steps ────────────────────────────────────────────────────
+const STEP_LABELS = [
+  'Request Sent',
+  'Request Approved',
+  'Truck Dispatched',
+  'Loading OTP',
+  'Return to Industry',
+];
 
 export default function IndustryOrdersDeliveries() {
   const [shipments, setShipments] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [gpsModal, setGpsModal] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.industry
-      .getOrders()
-      .then((res) => {
-        if (res?.shipments) {
-          const mapped = res.shipments.map((s) => ({
-            id: s.id,
-            batchId: `BATCH-${s.polymer?.substring(0, 3).toUpperCase() || 'PLAS'}`,
-            plasticType: s.polymer?.split(' ')[0] || 'PET',
-            quantity: s.quantity || `${s.quantityKg} kg`,
-            requestId: s.id,
-            status: s.status || 'In Transit',
-            eta: s.eta || 'Today, 04:30 PM',
-            dispatchDate: 'Today • 11:15 AM',
-            from: 'Municipal MRF Hub Sector 14',
-            to: s.destination || 'Unit 4, Industrial Area Phase 2',
-            driver: s.driverName || 'Suresh Kumar',
-            driverPhone: s.driverPhone || '+91 98765 43210',
-            truckNumber: s.vehicleNo || 'DL-01-AB-4921',
-            truckModel: 'Tata Ultra 1014 Heavy Logistics',
-            progress: s.status === 'Delivered' ? 100 : 45,
-            stage: s.status === 'Delivered' ? 'Delivered' : 'Shipping',
-            shippingStatusText: s.currentLocation || 'In Transit via Logistics Corridor',
-            deliveryStatusText: 'Awaiting arrival and security gate entry',
-          }));
-          setShipments(mapped);
-        }
-      })
-      .catch(() => {});
+  // Driver edit states
+  const [editingDriver, setEditingDriver] = useState(null);
+  const [driverForm, setDriverForm] = useState({ driverName: '', driverPhone: '', vehicleNo: '' });
+  const [driverSaving, setDriverSaving] = useState(false);
+  const [driverError, setDriverError] = useState('');
+
+  // OTP states
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [copiedOtp, setCopiedOtp] = useState(null);
+
+  // Action loading
+  const [actionLoading, setActionLoading] = useState(null);
+  const [actionError, setActionError] = useState('');
+
+  // Delivery verification
+  const [deliveryForm, setDeliveryForm] = useState({ otp: '', actualDeliveredKg: '', notes: '' });
+  const [deliveryVerifying, setDeliveryVerifying] = useState(null);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.industry.getOrders();
+      if (res?.shipments) {
+        setShipments(res.shipments);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  // ── Filter ──────────────────────────────────────────────────────────────
   const filtered = shipments.filter((s) => {
     if (statusFilter && s.status !== statusFilter) return false;
     if (
       searchTerm &&
-      !s.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !s.plasticType.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !s.truckNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      !s.id?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !s.polymer?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !(s.vehicleNo || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
       return false;
     return true;
   });
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'In Transit':
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-200">
-            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-            In Transit
-          </span>
-        );
-      case 'Reaching Destination':
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
-            <Clock className="h-3.5 w-3.5 text-amber-600 animate-spin" />
-            Reaching Destination
-          </span>
-        );
-      case 'Delivered':
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900 ring-1 ring-amber-300/80">
-            <CheckCircle2 className="h-3.5 w-3.5 text-amber-700" />
-            Delivered
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-            {status}
-          </span>
-        );
+  // ── Handlers ────────────────────────────────────────────────────────────
+  const startEditDriver = (s) => {
+    setEditingDriver(s._id);
+    setDriverForm({
+      driverName: s.driverName || '',
+      driverPhone: s.driverPhone || '',
+      vehicleNo: s.vehicleNo || '',
+    });
+    setDriverError('');
+  };
+
+  const saveDriverDetails = async (orderId) => {
+    setDriverSaving(true);
+    setDriverError('');
+    try {
+      await api.industry.updateDriver(orderId, driverForm);
+      setEditingDriver(null);
+      await fetchOrders();
+    } catch (err) {
+      setDriverError(err.message || 'Failed to update');
+    } finally {
+      setDriverSaving(false);
     }
   };
+
+  const handleDispatch = async (orderId) => {
+    setActionLoading(orderId);
+    setActionError('');
+    try {
+      await api.industry.dispatchTruck(orderId);
+      await fetchOrders();
+    } catch (err) {
+      setActionError(err.message || 'Failed to dispatch');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleGenerateLoadingOtp = async (orderId) => {
+    setOtpLoading(true);
+    setActionError('');
+    try {
+      await api.industry.generateLoadingOtp(orderId);
+      await fetchOrders();
+    } catch (err) {
+      setActionError(err.message || 'Failed to generate OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleGenerateDeliveryOtp = async (orderId) => {
+    setOtpLoading(true);
+    setActionError('');
+    try {
+      await api.industry.generateDeliveryOtp(orderId);
+      await fetchOrders();
+    } catch (err) {
+      setActionError(err.message || 'Failed to generate delivery OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyDelivery = async (orderId) => {
+    setDeliveryVerifying(orderId);
+    setActionError('');
+    try {
+      await api.industry.verifyDelivery(orderId, deliveryForm);
+      setDeliveryForm({ otp: '', actualDeliveredKg: '', notes: '' });
+      setDeliveryVerifying(null);
+      await fetchOrders();
+    } catch (err) {
+      setActionError(err.message || 'Failed to verify delivery');
+    } finally {
+      setDeliveryVerifying(null);
+    }
+  };
+
+  const copyToClipboard = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedOtp(id);
+    setTimeout(() => setCopiedOtp(null), 2000);
+  };
+
+  // ── Status badge ────────────────────────────────────────────────────────
+  const getStatusBadge = (status) => {
+    const styles = {
+      Processing: 'bg-slate-100 text-slate-700 ring-slate-200',
+      Approved: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+      'Truck Dispatched': 'bg-blue-50 text-blue-700 ring-blue-200',
+      'Loading OTP Verified': 'bg-violet-50 text-violet-700 ring-violet-200',
+      'In Transit': 'bg-amber-50 text-amber-800 ring-amber-200',
+      Delivered: 'bg-green-50 text-green-800 ring-green-200',
+      Cancelled: 'bg-red-50 text-red-700 ring-red-200',
+    };
+    const pulse = ['In Transit', 'Truck Dispatched'].includes(status);
+    return (
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ${styles[status] || styles.Processing}`}>
+        {pulse && <span className="h-2 w-2 rounded-full bg-current animate-pulse" />}
+        {status}
+      </span>
+    );
+  };
+
+  // ── Progress Steps (5 steps) ────────────────────────────────────────────
+  const renderProgressSteps = (steps) => {
+    const displaySteps = steps && steps.length > 0 ? steps : STEP_LABELS.map((l, i) => ({ step: i + 1, label: l, completed: false, current: i === 0 }));
+
+    return (
+      <div className="flex items-center justify-between gap-0">
+        {displaySteps.map((s, i) => {
+          const isDone = s.completed;
+          const isCurrent = s.current;
+          return (
+            <React.Fragment key={i}>
+              <div className="flex flex-col items-center text-center min-w-[60px]">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black transition-all ${
+                    isDone
+                      ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                      : isCurrent
+                      ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400 animate-pulse'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  {isDone ? <Check className="h-4 w-4" /> : s.step}
+                </div>
+                <span className={`mt-1.5 text-[10px] font-semibold leading-tight max-w-[70px] ${isDone ? 'text-amber-800' : isCurrent ? 'text-amber-700' : 'text-slate-400'}`}>
+                  {s.label}
+                </span>
+              </div>
+              {i < displaySteps.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 rounded-full ${isDone ? 'bg-amber-400' : 'bg-slate-200'}`} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── Trip Card ───────────────────────────────────────────────────────────
+  const renderTripCard = (trip, label, tripNum, isLocked = false) => {
+    if (!trip) return null;
+    const statusColors = {
+      Pending: 'bg-slate-100 text-slate-600',
+      'In Transit': 'bg-blue-100 text-blue-800',
+      Arrived: 'bg-amber-100 text-amber-800',
+      Completed: 'bg-green-100 text-green-800',
+    };
+    return (
+      <div className={`rounded-xl border p-4 transition-all ${
+        isLocked ? 'bg-slate-50 border-slate-200 opacity-60' : 
+        trip.status === 'Completed' ? 'bg-green-50/50 border-green-200' :
+        trip.status === 'In Transit' ? 'bg-blue-50/50 border-blue-200' :
+        'bg-white border-slate-200'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black ${
+              trip.status === 'Completed' ? 'bg-green-500 text-white' :
+              trip.status === 'In Transit' ? 'bg-blue-500 text-white' :
+              'bg-slate-300 text-white'
+            }`}>
+              {tripNum}
+            </span>
+            <span className="text-xs font-bold text-slate-800">Trip {tripNum}: {label}</span>
+          </div>
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${statusColors[trip.status] || statusColors.Pending}`}>
+            {isLocked ? '🔒 Locked' : trip.status}
+          </span>
+        </div>
+        {trip.startedAt && (
+          <p className="text-[11px] text-slate-500">Started: {new Date(trip.startedAt).toLocaleString()}</p>
+        )}
+        {trip.completedAt && (
+          <p className="text-[11px] text-green-700 font-medium">Completed: {new Date(trip.completedAt).toLocaleString()}</p>
+        )}
+        {isLocked && (
+          <p className="text-[11px] text-slate-400 mt-1 italic">Loading verification required before Trip 2 can start.</p>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+        <span className="ml-3 text-sm text-slate-500">Loading orders…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -109,11 +302,19 @@ export default function IndustryOrdersDeliveries() {
             <h2 className="text-xl font-black text-slate-800">Orders & Deliveries</h2>
           </div>
           <p className="text-sm text-slate-500">
-            Track real-time shipment status and delivery progress of procured plastic.
+            Manage truck dispatch, loading OTP, and delivery verification.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={fetchOrders}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 text-xs font-medium transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+
           <div className="relative">
             <select
               value={statusFilter}
@@ -121,8 +322,9 @@ export default function IndustryOrdersDeliveries() {
               className="appearance-none rounded-lg bg-white border border-slate-200 pl-3 pr-8 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-sm cursor-pointer"
             >
               <option value="">All Shipments</option>
+              <option value="Approved">Approved</option>
+              <option value="Truck Dispatched">Truck Dispatched</option>
               <option value="In Transit">In Transit</option>
-              <option value="Reaching Destination">Reaching Destination</option>
               <option value="Delivered">Delivered</option>
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 pointer-events-none" />
@@ -134,309 +336,499 @@ export default function IndustryOrdersDeliveries() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search tracking ID…"
+              placeholder="Search order ID…"
               className="w-full rounded-xl bg-white border border-slate-200 pl-9 pr-4 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 shadow-sm"
             />
           </div>
         </div>
       </div>
 
+      {/* Action Error */}
+      {actionError && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Shipment Cards */}
-      <div className="space-y-6">
+      <div className="space-y-5">
         {filtered.length === 0 ? (
           <div className="rounded-2xl bg-white border border-slate-200/80 p-12 text-center text-slate-400">
             <Truck className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-            <p className="font-semibold text-slate-600">No active shipments found</p>
-            <p className="text-xs text-slate-400 mt-1">Orders approved and dispatched by the municipality will show live GPS tracking here.</p>
+            <p className="font-semibold text-slate-600">No orders found</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Submit purchase requests and get them approved to see orders here.
+            </p>
           </div>
         ) : (
           filtered.map((shipment) => {
-          // Shipping progress: 0% to 50% normalized to 0-100% of section 1
-          const shippingPct = Math.min(100, Math.round((Math.min(shipment.progress, 50) / 50) * 100));
-          // Delivery progress: 50% to 100% normalized to 0-100% of section 2
-          const deliveryPct = Math.max(0, Math.min(100, Math.round(((Math.max(shipment.progress, 50) - 50) / 50) * 100)));
+            const isExpanded = expandedId === shipment._id;
+            const hasDriver = shipment.driverName && shipment.driverPhone && shipment.vehicleNo;
+            const canDispatch = shipment.status === 'Approved' && hasDriver;
+            const canGenerateLoadingOtp = shipment.status === 'Truck Dispatched' && !shipment.loadingOtp?.verified;
+            const loadingOtpGenerated = shipment.loadingOtp?.otpPlain && !shipment.loadingOtp?.verified;
+            const loadingVerified = shipment.loadingOtp?.verified;
+            const canGenerateDeliveryOtp = loadingVerified && !shipment.deliveryOtp?.verified && shipment.status === 'In Transit';
+            const deliveryOtpGenerated = shipment.deliveryOtp?.otpPlain && !shipment.deliveryOtp?.verified;
+            const trip2Locked = !loadingVerified;
 
-          const isShippingComplete = shipment.progress >= 50;
-          const isDelivered = shipment.progress === 100;
-
-          return (
-            <div
-              key={shipment.id}
-              className="rounded-2xl bg-white border border-slate-200/80 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Card Top: Tracking ID, Meta, Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200/80 shrink-0">
-                    <Truck className="h-5 w-5" strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-base font-extrabold text-slate-900">
-                        {shipment.id}
-                      </span>
-                      <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300/80">
-                        {shipment.plasticType} • {shipment.quantity}
-                      </span>
+            return (
+              <div
+                key={shipment._id}
+                className="rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                {/* Card Header */}
+                <div
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 sm:p-6 cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : shipment._id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200/80 shrink-0">
+                      <Truck className="h-5 w-5" strokeWidth={2.2} />
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span>Linked Request: <strong className="text-slate-600 font-mono">{shipment.requestId}</strong></span>
-                      <span>•</span>
-                      <span>Dispatched: <strong className="text-slate-600">{shipment.dispatchDate}</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setGpsModal(shipment)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 px-3.5 py-2 text-xs font-bold transition-colors active:scale-[0.98]"
-                  >
-                    <Navigation className="h-3.5 w-3.5 text-amber-700" />
-                    Live GPS
-                  </button>
-                  {getStatusBadge(shipment.status)}
-                </div>
-              </div>
-
-              {/* Delivery Progress: Two Equal Sections (50% Shipping + 50% Delivery = 100%) */}
-              <div className="my-6 rounded-2xl bg-slate-50 border border-slate-200/80 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Compass className="h-4 w-4 text-amber-700" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                      Shipment Journey Progress
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500">Overall:</span>
-                    <span className="text-sm font-black text-amber-900 tabular-nums">
-                      {shipment.progress}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dual Section Progress Container */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* SECTION 1 — SHIPPING (50% of Total) */}
-                  <div className={`rounded-xl border p-4 transition-all ${
-                    isShippingComplete
-                      ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300/60'
-                      : 'bg-white border-yellow-300 ring-1 ring-yellow-200'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
+                    <div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-900 text-[10px] font-black">
-                          1
+                        <span className="font-mono text-base font-extrabold text-slate-900">
+                          {shipment.id}
                         </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          SECTION 1 — SHIPPING (0% – 50%)
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300/80">
+                          {shipment.polymer?.split(' ')[0]} • {shipment.quantity}
                         </span>
                       </div>
-                      <span className="text-xs font-bold tabular-nums text-amber-900">
-                        {shippingPct}%
-                      </span>
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                        <span>
+                          Amount: <strong className="text-slate-600">₹{(shipment.totalAmount || 0).toLocaleString('en-IN')}</strong>
+                        </span>
+                        <span>•</span>
+                        <span>Created: <strong className="text-slate-600">{new Date(shipment.createdAt).toLocaleDateString()}</strong></span>
+                      </div>
                     </div>
-
-                    {/* Progress Bar for Section 1 */}
-                    <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden mb-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-300 to-yellow-400 transition-all duration-500 rounded-full"
-                        style={{ width: `${shippingPct}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Depot Departure</span>
-                      <span>Transit to Factory</span>
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-600 font-medium">
-                      {shipment.shippingStatusText}
-                    </p>
                   </div>
 
-                  {/* SECTION 2 — DELIVERY (50% of Total) */}
-                  <div className={`rounded-xl border p-4 transition-all ${
-                    isDelivered
-                      ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300/60'
-                      : shipment.progress > 50
-                      ? 'bg-white border-amber-300 ring-1 ring-amber-200'
-                      : 'bg-slate-100/60 border-slate-200 opacity-80'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
-                          isDelivered
-                            ? 'bg-amber-400 text-slate-900'
-                            : shipment.progress > 50
-                            ? 'bg-amber-400 text-slate-900'
-                            : 'bg-slate-400 text-white'
-                        }`}>
-                          2
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          SECTION 2 — DELIVERY (50% – 100%)
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(shipment.status)}
+                    <ChevronRight className={`h-5 w-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-slate-100 p-5 sm:p-6 space-y-6">
+                    {/* ─── 5-Step Progress ─────────────────────────────────── */}
+                    <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Compass className="h-4 w-4 text-amber-700" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                          Shipment Journey Progress
                         </span>
                       </div>
-                      <span className="text-xs font-bold tabular-nums text-slate-700">
-                        {deliveryPct}%
-                      </span>
+                      {renderProgressSteps(shipment.progressSteps)}
                     </div>
 
-                    {/* Progress Bar for Section 2 */}
-                    <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden mb-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-yellow-400 to-amber-400 transition-all duration-500 rounded-full"
-                        style={{ width: `${deliveryPct}%` }}
-                      />
+                    {/* ─── Trip Cards ──────────────────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {renderTripCard(shipment.trip1, shipment.trip1?.label || 'Industry → Municipality', 1)}
+                      {renderTripCard(shipment.trip2, shipment.trip2?.label || 'Municipality → Industry', 2, trip2Locked)}
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Gate Inspection</span>
-                      <span>Material Unloaded</span>
+                    {/* ─── Driver & Truck Details (Editable) ──────────────── */}
+                    <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-slate-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Driver & Truck Details
+                          </span>
+                        </div>
+                        {shipment.status !== 'Delivered' && editingDriver !== shipment._id && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); startEditDriver(shipment); }}
+                            className="inline-flex items-center gap-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 px-2.5 py-1.5 text-[11px] font-bold transition-colors"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                            Edit
+                          </button>
+                        )}
+                      </div>
+
+                      {editingDriver === shipment._id ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Driver Name</label>
+                              <input
+                                type="text"
+                                value={driverForm.driverName}
+                                onChange={(e) => setDriverForm({ ...driverForm, driverName: e.target.value })}
+                                placeholder="Enter driver name"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Driver Mobile</label>
+                              <input
+                                type="text"
+                                value={driverForm.driverPhone}
+                                onChange={(e) => setDriverForm({ ...driverForm, driverPhone: e.target.value })}
+                                placeholder="+91 XXXXX XXXXX"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-slate-500 mb-1 block">Truck Registration</label>
+                              <input
+                                type="text"
+                                value={driverForm.vehicleNo}
+                                onChange={(e) => setDriverForm({ ...driverForm, vehicleNo: e.target.value })}
+                                placeholder="XX-00-XX-0000"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                            </div>
+                          </div>
+                          {driverError && (
+                            <p className="text-xs text-red-600 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" /> {driverError}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => saveDriverDetails(shipment._id)}
+                              disabled={driverSaving}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 text-xs font-bold transition-colors disabled:opacity-50"
+                            >
+                              {driverSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                              Save Details
+                            </button>
+                            <button
+                              onClick={() => setEditingDriver(null)}
+                              className="rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 text-xs font-bold transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-400 font-medium">Driver</span>
+                            <p className="font-semibold text-slate-800 mt-0.5">{shipment.driverName || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-medium">Phone</span>
+                            <p className="font-semibold text-slate-800 mt-0.5">{shipment.driverPhone || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-medium">Vehicle No.</span>
+                            <p className="font-mono font-bold text-slate-800 mt-0.5">{shipment.vehicleNo || '—'}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="mt-2 text-xs text-slate-600 font-medium">
-                      {shipment.deliveryStatusText}
-                    </p>
+                    {/* ─── Dispatch Button ─────────────────────────────────── */}
+                    {shipment.status === 'Approved' && (
+                      <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-bold text-blue-900">Ready to Dispatch</p>
+                            <p className="text-xs text-blue-700 mt-0.5">
+                              {hasDriver
+                                ? 'Driver and truck details are set. You can dispatch the truck now.'
+                                : 'Please set driver name, phone, and vehicle number first.'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleDispatch(shipment._id)}
+                            disabled={!canDispatch || actionLoading === shipment._id}
+                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {actionLoading === shipment._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Truck className="h-4 w-4" />
+                            )}
+                            Dispatch Truck
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── Loading OTP Section ─────────────────────────────── */}
+                    {(shipment.status === 'Truck Dispatched' || loadingOtpGenerated || loadingVerified) && (
+                      <div className={`rounded-xl border p-4 ${
+                        loadingVerified ? 'bg-green-50 border-green-200' : 'bg-violet-50 border-violet-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Key className="h-4 w-4 text-violet-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Loading OTP {loadingVerified ? '✓ Verified' : ''}
+                          </span>
+                        </div>
+
+                        {loadingVerified ? (
+                          <div className="space-y-2 text-xs">
+                            <div className="flex items-center gap-2 text-green-700">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="font-bold">Loading OTP verified by Municipality</span>
+                            </div>
+                            <p className="text-slate-600">
+                              Actual loaded weight: <strong>{shipment.actualLoadedKg} kg</strong>
+                              {shipment.actualLoadedKg !== shipment.quantityKg && (
+                                <span className="ml-2 text-amber-700">(requested: {shipment.quantityKg} kg)</span>
+                              )}
+                            </p>
+                            {shipment.loadingOtp?.verifiedAt && (
+                              <p className="text-slate-500">Verified at: {new Date(shipment.loadingOtp.verifiedAt).toLocaleString()}</p>
+                            )}
+                          </div>
+                        ) : loadingOtpGenerated ? (
+                          <div className="space-y-3">
+                            <p className="text-xs text-slate-600">
+                              Share this OTP with the Municipality officer at the loading point.
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <div className="inline-flex items-center gap-2 rounded-lg bg-white border-2 border-violet-300 px-4 py-2.5">
+                                <span className="font-mono text-2xl font-black text-violet-900 tracking-[0.3em]">
+                                  {shipment.loadingOtp.otpPlain}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => copyToClipboard(shipment.loadingOtp.otpPlain, `loading-${shipment._id}`)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-800 px-3 py-2.5 text-xs font-bold transition-colors"
+                              >
+                                {copiedOtp === `loading-${shipment._id}` ? (
+                                  <><Check className="h-3.5 w-3.5" /> Copied!</>
+                                ) : (
+                                  <><Copy className="h-3.5 w-3.5" /> Copy OTP</>
+                                )}
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-4 text-[11px] text-slate-500">
+                              <span>Expires: {new Date(shipment.loadingOtp.expiresAt).toLocaleString()}</span>
+                              <span>•</span>
+                              <span>Attempts: {shipment.loadingOtp.attempts}/{shipment.loadingOtp.maxAttempts}</span>
+                            </div>
+                          </div>
+                        ) : canGenerateLoadingOtp ? (
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-slate-600">
+                              Generate a secure 6-digit OTP for Municipality to verify loading.
+                            </p>
+                            <button
+                              onClick={() => handleGenerateLoadingOtp(shipment._id)}
+                              disabled={otpLoading}
+                              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
+                            >
+                              {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                              Generate Loading OTP
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* ─── Delivery OTP Section (separate from loading) ────── */}
+                    {(canGenerateDeliveryOtp || deliveryOtpGenerated || shipment.deliveryOtp?.verified) && (
+                      <div className={`rounded-xl border p-4 ${
+                        shipment.deliveryOtp?.verified ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Shield className="h-4 w-4 text-orange-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Delivery OTP {shipment.deliveryOtp?.verified ? '✓ Verified' : ''}
+                          </span>
+                        </div>
+
+                        {shipment.deliveryOtp?.verified ? (
+                          <div className="space-y-2 text-xs">
+                            <div className="flex items-center gap-2 text-green-700">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="font-bold">Delivery verified & order completed</span>
+                            </div>
+                            {shipment.actualDeliveredKg != null && (
+                              <p className="text-slate-600">
+                                Delivered weight: <strong>{shipment.actualDeliveredKg} kg</strong>
+                              </p>
+                            )}
+                            {shipment.reconciliation?.weightDiffKg != null && (
+                              <p className="text-slate-600">
+                                Weight difference: <strong className={shipment.reconciliation.weightDiffKg === 0 ? 'text-green-700' : 'text-amber-700'}>
+                                  {shipment.reconciliation.weightDiffKg >= 0 ? '+' : ''}{shipment.reconciliation.weightDiffKg} kg
+                                </strong>
+                              </p>
+                            )}
+                          </div>
+                        ) : deliveryOtpGenerated ? (
+                          <div className="space-y-3">
+                            <p className="text-xs text-slate-600">
+                              This OTP is for delivery verification when the truck arrives.
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <div className="inline-flex items-center gap-2 rounded-lg bg-white border-2 border-orange-300 px-4 py-2.5">
+                                <span className="font-mono text-2xl font-black text-orange-900 tracking-[0.3em]">
+                                  {shipment.deliveryOtp.otpPlain}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => copyToClipboard(shipment.deliveryOtp.otpPlain, `delivery-${shipment._id}`)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2.5 text-xs font-bold transition-colors"
+                              >
+                                {copiedOtp === `delivery-${shipment._id}` ? (
+                                  <><Check className="h-3.5 w-3.5" /> Copied!</>
+                                ) : (
+                                  <><Copy className="h-3.5 w-3.5" /> Copy OTP</>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Inline delivery verification form */}
+                            <div className="mt-3 pt-3 border-t border-orange-200">
+                              <p className="text-xs font-bold text-slate-700 mb-2">Verify Delivery</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  value={deliveryForm.otp}
+                                  onChange={(e) => setDeliveryForm({ ...deliveryForm, otp: e.target.value })}
+                                  placeholder="Enter OTP"
+                                  className="rounded-lg border border-orange-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                />
+                                <input
+                                  type="number"
+                                  value={deliveryForm.actualDeliveredKg}
+                                  onChange={(e) => setDeliveryForm({ ...deliveryForm, actualDeliveredKg: e.target.value })}
+                                  placeholder="Delivered weight (kg)"
+                                  className="rounded-lg border border-orange-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                />
+                                <button
+                                  onClick={() => handleVerifyDelivery(shipment._id)}
+                                  disabled={deliveryVerifying === shipment._id || !deliveryForm.otp}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-xs font-bold transition-colors disabled:opacity-50"
+                                >
+                                  {deliveryVerifying === shipment._id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  )}
+                                  Verify
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : canGenerateDeliveryOtp ? (
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-slate-600">
+                              Generate a delivery OTP for final verification when the truck arrives at your facility.
+                            </p>
+                            <button
+                              onClick={() => handleGenerateDeliveryOtp(shipment._id)}
+                              disabled={otpLoading}
+                              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
+                            >
+                              {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                              Generate Delivery OTP
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* ─── Delivery & Reconciliation Panel ─────────────────── */}
+                    {shipment.status === 'Delivered' && shipment.reconciliation && (
+                      <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Package className="h-4 w-4 text-green-700" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-green-800">
+                            Delivery & Quantity Reconciliation
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-500">Requested</span>
+                            <p className="font-bold text-slate-800">{shipment.quantityKg} kg</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Loaded</span>
+                            <p className="font-bold text-slate-800">{shipment.actualLoadedKg || '—'} kg</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Delivered</span>
+                            <p className="font-bold text-slate-800">{shipment.actualDeliveredKg || '—'} kg</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Difference</span>
+                            <p className={`font-bold ${(shipment.reconciliation.weightDiffKg || 0) === 0 ? 'text-green-700' : 'text-amber-700'}`}>
+                              {(shipment.reconciliation.weightDiffKg || 0) >= 0 ? '+' : ''}
+                              {shipment.reconciliation.weightDiffKg || 0} kg
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── Timeline Events ─────────────────────────────────── */}
+                    {shipment.timeline && shipment.timeline.length > 0 && (
+                      <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FileText className="h-4 w-4 text-slate-600" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                            Timeline Events
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {shipment.timeline.map((evt, i) => (
+                            <div key={i} className="flex gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className={`h-2.5 w-2.5 rounded-full mt-1 ${
+                                  i === shipment.timeline.length - 1 ? 'bg-amber-500' : 'bg-slate-300'
+                                }`} />
+                                {i < shipment.timeline.length - 1 && (
+                                  <div className="w-px flex-1 bg-slate-200 my-1" />
+                                )}
+                              </div>
+                              <div className="pb-2">
+                                <p className="text-xs font-bold text-slate-800">{evt.event}</p>
+                                <p className="text-[11px] text-slate-500">{evt.description}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  {new Date(evt.timestamp).toLocaleString()} • {evt.actor} ({evt.actorRole})
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ─── Destination & Info Grid ─────────────────────────── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
+                        <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
+                          <MapPin className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Destination</span>
+                        </div>
+                        <p className="font-semibold text-slate-800 leading-snug">
+                          {shipment.destination || 'Not set'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
+                        <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
+                          <Calendar className="h-3.5 w-3.5 text-amber-600" />
+                          <span>ETA</span>
+                        </div>
+                        <p className="font-semibold text-slate-800">
+                          {shipment.eta || 'Pending dispatch'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-
-              {/* Shipment Details Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs pt-2">
-                {/* Starting Location */}
-                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
-                  <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
-                    <MapPin className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Starting Location</span>
-                  </div>
-                  <p className="font-semibold text-slate-800 leading-snug">
-                    {shipment.from}
-                  </p>
-                </div>
-
-                {/* Destination Factory */}
-                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
-                  <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
-                    <MapPin className="h-3.5 w-3.5 text-amber-700" />
-                    <span>Destination Factory</span>
-                  </div>
-                  <p className="font-semibold text-slate-800 leading-snug">
-                    {shipment.to}
-                  </p>
-                </div>
-
-                {/* Driver & Contact */}
-                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
-                  <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
-                    <User className="h-3.5 w-3.5 text-slate-600" />
-                    <span>Driver & Contact</span>
-                  </div>
-                  <p className="font-semibold text-slate-800">
-                    {shipment.driver}
-                  </p>
-                  <p className="text-[11px] text-slate-500">{shipment.driverPhone}</p>
-                </div>
-
-                {/* Truck & ETA */}
-                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5">
-                  <div className="flex items-center gap-1.5 text-slate-400 font-semibold mb-1">
-                    <Clock className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Truck & ETA</span>
-                  </div>
-                  <p className="font-mono font-bold text-slate-800">
-                    {shipment.truckNumber}
-                  </p>
-                  <p className="text-[11px] text-amber-900 font-semibold">{shipment.eta}</p>
-                </div>
-              </div>
-            </div>
-          );
-        }))}
+            );
+          })
+        )}
       </div>
-
-      {/* Live GPS Modal */}
-      {gpsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-            onClick={() => setGpsModal(null)}
-          />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200/80 animate-scale-in overflow-hidden">
-            <div className="relative bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 border-b border-amber-300/70 px-6 py-5 text-slate-900">
-              <button
-                onClick={() => setGpsModal(null)}
-                className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg bg-amber-200/70 hover:bg-amber-300 text-slate-800 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-2 text-amber-900 text-xs font-bold uppercase tracking-wider mb-1">
-                <Navigation className="h-4 w-4 animate-bounce text-amber-700" />
-                Live Vehicle GPS Ping
-              </div>
-              <h3 className="text-lg font-black text-slate-900">{gpsModal.id} • {gpsModal.truckNumber}</h3>
-              <p className="text-xs text-slate-700">{gpsModal.truckModel}</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Simulated Map Container */}
-              <div className="relative h-48 w-full rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 p-4 overflow-hidden flex flex-col justify-between text-white border border-slate-700">
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:16px_16px]" />
-                
-                <div className="relative z-10 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-300 ring-1 ring-amber-400/40">
-                    <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-                    GPS Signal Active (Lock: 9 Satellites)
-                  </span>
-                  <span className="text-xs font-mono text-slate-300">Speed: 42 km/h</span>
-                </div>
-
-                <div className="relative z-10 text-center py-4">
-                  <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-amber-500/20 border-2 border-amber-400 text-amber-300 mb-2">
-                    <Truck className="h-6 w-6" />
-                  </div>
-                  <p className="text-xs font-bold text-amber-200">
-                    En Route on NH-44 Expressway
-                  </p>
-                  <p className="text-[11px] text-slate-400">14.2 km to Green Polymer Plant #2</p>
-                </div>
-
-                <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-700/80 pt-2">
-                  <span>Lat: 13.0382° N, Lon: 77.5126° E</span>
-                  <span>Last update: 5 seconds ago</span>
-                </div>
-              </div>
-
-              {/* Driver Contact & Dispatch Info */}
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Assigned Driver:</span>
-                  <span className="font-bold text-slate-800">{gpsModal.driver} ({gpsModal.driverPhone})</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Cargo:</span>
-                  <span className="font-bold text-slate-800">{gpsModal.plasticType} ({gpsModal.quantity})</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Estimated Arrival:</span>
-                  <span className="font-bold text-amber-900">{gpsModal.eta}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end border-t border-slate-100 px-6 py-4 bg-slate-50/60">
-              <button
-                onClick={() => setGpsModal(null)}
-                className="rounded-xl bg-slate-800 text-white px-5 py-2 text-xs font-bold hover:bg-slate-900 transition-colors"
-              >
-                Close Tracking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ArrowLeftRight,
   ShoppingBag,
+  Building2,
 } from 'lucide-react';
 
 const tabs = [
@@ -48,6 +49,13 @@ const tabs = [
     label: 'Orders',
     description: 'Industry Material Requests',
     icon: ShoppingBag,
+    badge: null,
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    description: 'Municipal Office & Officer',
+    icon: Building2,
     badge: null,
   },
 ];
@@ -170,13 +178,20 @@ export default function MunicipalSidebar({
         {/* Bottom: Officer Card & Portal Switcher */}
         <div className="p-3.5 border-t border-slate-100 bg-slate-50/60 space-y-3">
           {/* Officer Info Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-blue-800 to-blue-950 p-3.5 text-white shadow-lg shadow-blue-800/20">
+          <div
+            onClick={() => onChangeTab('profile')}
+            className="rounded-2xl bg-gradient-to-br from-blue-800 to-blue-950 p-3.5 text-white shadow-lg shadow-blue-800/20 cursor-pointer hover:ring-2 hover:ring-blue-400/50 transition-all group"
+            title="View Municipal Profile"
+          >
             <div className="flex items-center gap-2.5 mb-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white font-bold text-xs ring-2 ring-white/30">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white font-bold text-xs ring-2 ring-white/30 group-hover:scale-105 transition-transform">
                 RV
               </div>
               <div className="leading-tight">
-                <p className="text-[13px] font-bold">Officer R. Vance</p>
+                <p className="text-[13px] font-bold flex items-center justify-between">
+                  <span>Officer R. Vance</span>
+                  <span className="text-[10px] text-blue-300 font-normal underline opacity-80 group-hover:opacity-100">View</span>
+                </p>
                 <p className="text-[10.5px] text-blue-200">Zone 4 Operations Chief</p>
               </div>
             </div>

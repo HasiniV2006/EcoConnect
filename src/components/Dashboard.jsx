@@ -37,7 +37,7 @@ export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
       ring: 'border-emerald-200/80',
       textColor: 'text-emerald-800',
       shadow: 'shadow-emerald-600/20',
-      trend: '+2.3 kg this month',
+      trend: parseFloat(data.recycledWeight) > 0 ? `${data.recycledWeight} verified` : 'Doorstep recycling',
       targetTab: 'pickup',
     },
     {
@@ -50,7 +50,7 @@ export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
       ring: 'border-amber-200/80',
       textColor: 'text-amber-800',
       shadow: 'shadow-amber-500/20',
-      trend: '+52 pts last pickup',
+      trend: (data.walletPoints ?? walletPoints) > 0 ? `${data.walletPoints ?? walletPoints} available` : '10 PTS per verified kg',
       targetTab: 'credits',
     },
     {

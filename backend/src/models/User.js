@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema(
     },
     walletPoints: {
       type: Number,
-      default: 450,
+      default: 0,
       min: 0,
     },
     // Industry specific fields
@@ -53,7 +53,15 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    businessCategory: {
+      type: String,
+      default: '',
+    },
     gstNumber: {
+      type: String,
+      default: '',
+    },
+    panNumber: {
       type: String,
       default: '',
     },
@@ -65,9 +73,42 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    designation: {
+      type: String,
+      default: '',
+    },
     monthlyCapacityKg: {
       type: Number,
       default: 10000,
+    },
+    city: {
+      type: String,
+      default: '',
+    },
+    state: {
+      type: String,
+      default: '',
+    },
+    pincode: {
+      type: String,
+      default: '',
+    },
+    polymers: {
+      type: String,
+      default: '',
+    },
+    // Municipality specific fields
+    department: {
+      type: String,
+      default: 'Environmental & Sanitation Dept.',
+    },
+    zone: {
+      type: String,
+      default: 'Zone 4',
+    },
+    officeAddress: {
+      type: String,
+      default: '',
     },
   },
   {

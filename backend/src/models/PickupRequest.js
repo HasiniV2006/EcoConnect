@@ -72,7 +72,6 @@ const pickupRequestSchema = new mongoose.Schema(
     },
     polymerType: {
       type: String,
-      enum: ['PET Bottles', 'HDPE Containers', 'LDPE Films', 'PP Rigid', 'Mixed Polymer', 'Other', null],
       default: null,
     },
     rewardOutcome: {

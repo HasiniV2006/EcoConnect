@@ -8,6 +8,7 @@ import ReportIssue from './components/ReportIssue';
 import NewPickupModal from './components/NewPickupModal';
 import ReportIssueModal from './components/ReportIssueModal';
 import SettingsModal from './components/SettingsModal';
+import HelpDesk from './components/HelpDesk';
 import { api } from './api/client';
 import { useAuth } from './context/AuthContext';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
@@ -59,15 +60,20 @@ export default function App({ onSwitchPortal }) {
       if (complaintRes?.complaints) {
         // Map backend complaint structure to frontend UI format
         const formattedIssues = complaintRes.complaints.map((c) => ({
+          _id: c._id,
           id: c.id,
           title: c.title,
           category: c.category,
           location: c.location,
-          locationShort: c.location.split(',')[0],
+          locationShort: c.location ? c.location.split(',')[0] : '',
           description: c.description,
           reportedTime: `Reported: ${new Date(c.createdAt).toLocaleDateString()}`,
           status: (c.status || 'SUBMITTED').toUpperCase(),
-          imageUrl: c.photoUrl,
+          imageUrl: c.originalPhotoUrl || c.photoUrl,
+          completionPhotoUrl: c.completionPhotoUrl,
+          completionDescription: c.completionDescription,
+          completedBy: c.completedBy,
+          completedAt: c.completedAt,
           timelineSteps: (c.timeline || []).map((t) => ({
             label: t.step,
             state: t.status === 'completed' ? 'done' : t.status === 'current' ? 'active' : 'pending',
@@ -161,8 +167,11 @@ export default function App({ onSwitchPortal }) {
           <ReportIssue
             issues={issues}
             onOpenModal={() => setShowReportModal(true)}
+            onRefresh={loadCitizenData}
           />
         );
+      case 'helpdesk':
+        return <HelpDesk />;
       default:
         return <Dashboard walletPoints={walletPoints} onNavigateTab={setActiveTab} />;
     }

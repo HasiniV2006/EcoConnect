@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ShieldCheck,
   ArrowLeftRight,
+  HelpCircle,
 } from 'lucide-react';
 
 const tabs = [
@@ -34,9 +35,15 @@ const tabs = [
   },
   {
     id: 'report',
-    label: 'Report Civic Issue',
-    description: 'Track Community Hazards',
+    label: 'Civic Issue Report',
+    description: 'Report & Track Complaints',
     icon: AlertTriangle,
+  },
+  {
+    id: 'helpdesk',
+    label: 'Help Desk',
+    description: 'Municipal Contacts & Helplines',
+    icon: HelpCircle,
   },
 ];
 

@@ -46,6 +46,9 @@ export async function requireAuth(req, res, next) {
 }
 
 export function requireRole(...roles) {
+  const normalizedRoles = roles.flatMap((r) =>
+    r === 'municipality' || r === 'municipal' ? ['municipality', 'municipal'] : [r]
+  );
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -54,7 +57,8 @@ export function requireRole(...roles) {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user.role === 'municipal' ? 'municipality' : req.user.role;
+    if (!normalizedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: `Forbidden: User role '${req.user.role}' is not authorized to access this endpoint`,

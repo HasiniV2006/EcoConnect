@@ -34,6 +34,11 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please select a category'],
       enum: [
+        'Overflowing Bin',
+        'Illegal Dumping',
+        'Missed Pickup',
+        'Hazardous Plastic',
+        'Burning Waste',
         'Pothole / Road Damage',
         'Street Light Outage',
         'Garbage Overflow',
@@ -41,11 +46,6 @@ const complaintSchema = new mongoose.Schema(
         'Drainage / Sewage',
         'Public Safety Hazard',
         'Noise / Pollution',
-        'Overflowing Bin',
-        'Illegal Dumping',
-        'Missed Pickup',
-        'Hazardous Plastic',
-        'Burning Waste',
         'Other',
       ],
     },
@@ -57,6 +57,10 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Please provide a description'],
     },
+    originalPhotoUrl: {
+      type: String,
+      default: null,
+    },
     photoUrl: {
       type: String,
       default: null,
@@ -65,9 +69,29 @@ const complaintSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    completionPhotoUrl: {
+      type: String,
+      default: null,
+    },
+    completionDescription: {
+      type: String,
+      default: '',
+    },
+    completionRemarks: {
+      type: String,
+      default: '',
+    },
+    completedBy: {
+      type: String,
+      default: '',
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
     status: {
       type: String,
-      enum: ['Submitted', 'Assigned', 'In Progress', 'Resolved', 'Rejected'],
+      enum: ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Resolved', 'Rejected'],
       default: 'Submitted',
     },
     priority: {

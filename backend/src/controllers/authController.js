@@ -126,10 +126,20 @@ export async function updateProfile(req, res, next) {
       'address',
       'companyName',
       'industryType',
+      'businessCategory',
       'gstNumber',
+      'panNumber',
       'facilityLocation',
       'contactPerson',
+      'designation',
       'monthlyCapacityKg',
+      'city',
+      'state',
+      'pincode',
+      'polymers',
+      'department',
+      'zone',
+      'officeAddress',
     ];
 
     allowedFields.forEach((field) => {
@@ -160,16 +170,19 @@ export async function updateProfile(req, res, next) {
  */
 export async function demoLogin(req, res, next) {
   try {
-    const { role } = req.body; // 'citizen' | 'municipality' | 'industry'
+    let { role } = req.body; // 'citizen' | 'municipality' | 'industry'
+    if (role === 'municipal') role = 'municipality';
     const targetRole = role || 'citizen';
 
     const roleEmails = {
       citizen: 'citizen@ecoconnect.local',
       municipality: 'admin@ecoconnect.local',
+      municipal: 'admin@ecoconnect.local',
       industry: 'industry@ecoconnect.local',
     };
 
-    let user = await User.findOne({ email: roleEmails[targetRole] });
+    const targetEmail = roleEmails[targetRole] || 'admin@ecoconnect.local';
+    let user = await User.findOne({ email: targetEmail });
     if (!user) {
       user = await User.findOne({ role: targetRole });
     }
@@ -185,7 +198,7 @@ export async function demoLogin(req, res, next) {
           phone: '+91 98102 34567',
           ward: 'Sector 14',
           address: 'Flat 402, Green Valley Apts, Sector 14',
-          walletPoints: 450,
+          walletPoints: 0,
         },
         municipality: {
           name: 'Officer R. Vance',
@@ -195,6 +208,7 @@ export async function demoLogin(req, res, next) {
           phone: '+91 11 2345 6789',
           ward: 'Central Command',
           address: 'Civic Centre, Minto Road',
+          walletPoints: 0,
         },
         industry: {
           name: 'Green Polymer Ind.',
@@ -207,17 +221,17 @@ export async function demoLogin(req, res, next) {
           facilityLocation: 'Sector 18 Industrial Area, Warehouse 3',
           contactPerson: 'Siddharth Rao (Procurement Head)',
           phone: '+91 99887 66554',
+          walletPoints: 0,
         },
       };
+
+      defaults.municipal = defaults.municipality;
 
       try {
         user = await User.create(defaults[targetRole] || defaults.citizen);
       } catch (createErr) {
-        // Race condition: another concurrent request already created the demo user.
-        // Gracefully fall back to finding the existing record.
         if (createErr.code === 11000) {
-          user = await User.findOne({ email: roleEmails[targetRole] });
-          if (!user) user = await User.findOne({ role: targetRole });
+          user = (await User.findOne({ email: targetEmail })) || (await User.findOne({ role: targetRole }));
         } else {
           throw createErr;
         }
@@ -225,7 +239,7 @@ export async function demoLogin(req, res, next) {
     }
 
     if (!user) {
-      return res.status(500).json({ success: false, message: 'Could not initialize demo account' });
+      return res.status(404).json({ success: false, message: `Could not load ${targetRole} user account.` });
     }
 
     sendTokenResponse(user, 200, res, `Switched to ${targetRole} demo session`);

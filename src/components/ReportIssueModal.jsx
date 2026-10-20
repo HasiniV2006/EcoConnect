@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Upload, MapPin, Tag, FileText, Camera, Sparkles } from 'lucide-react';
 
+import { api } from '../api/client';
+
 const categories = [
   'Pothole / Road Damage',
   'Street Light Outage',
@@ -9,28 +11,46 @@ const categories = [
   'Drainage / Sewage',
   'Public Safety Hazard',
   'Noise / Pollution',
+  'Overflowing Bin',
+  'Illegal Dumping',
+  'Missed Pickup',
+  'Hazardous Plastic',
+  'Burning Waste',
   'Other',
 ];
 
 export default function ReportIssueModal({ isOpen, onClose, onSubmit }) {
   const [form, setForm] = useState({
     title: '',
-    category: 'Pothole / Road Damage',
+    category: 'Garbage Overflow',
     location: '',
     description: '',
     imagePreview: null,
+    imageUrl: null,
   });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   if (!isOpen) return null;
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm((prev) => ({ ...prev, imagePreview: reader.result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploadError(null);
+    setForm((prev) => ({ ...prev, imagePreview: URL.createObjectURL(file) }));
+
+    setUploading(true);
+    try {
+      const res = await api.upload.uploadImage(file, 'citizen-complaints');
+      if (res?.url) {
+        setForm((prev) => ({ ...prev, imageUrl: res.url }));
+      }
+    } catch (err) {
+      console.warn('Image upload failed, fallback:', err);
+      setUploadError('Could not upload image to server');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -39,10 +59,10 @@ export default function ReportIssueModal({ isOpen, onClose, onSubmit }) {
     if (onSubmit) {
       onSubmit({
         title: form.title || 'Civic Issue Report',
-        category: form.category || 'Pothole / Road Damage',
+        category: form.category || 'Garbage Overflow',
         location: form.location || 'Local Municipal Ward',
         description: form.description || 'Reported civic issue requiring municipal attention.',
-        imageUrl: form.imagePreview,
+        imageUrl: form.imageUrl || form.imagePreview,
       });
     }
     onClose();

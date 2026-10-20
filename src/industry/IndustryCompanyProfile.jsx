@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   ShieldCheck,
@@ -12,12 +12,21 @@ import {
   Calendar,
   AlertCircle,
   Hash,
+  Edit3,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../api/client';
 
 export default function IndustryCompanyProfile({ onShowToast }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
   const [profile, setProfile] = useState({
-    industryId: 'IND-1001', // Replaced "CPCB EPR reg." with "Industry ID"
+    industryId: 'IND-1001',
     companyName: 'Green Polymer Industries Ltd.',
     businessCategory: 'Plastic Recycling & Compounder',
     authorizedPerson: 'Ananya Deshmukh',
@@ -35,24 +44,46 @@ export default function IndustryCompanyProfile({ onShowToast }) {
     complianceValidity: 'March 31, 2027 (Active)',
   });
 
-  const [isSaved, setIsSaved] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState(null);
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.auth.me();
+      if (res?.user) {
+        const u = res.user;
+        const loaded = {
+          industryId: u._id ? `IND-${u._id.slice(-4).toUpperCase()}` : 'IND-1001',
+          companyName: u.companyName || u.name || 'Green Polymer Industries Ltd.',
+          businessCategory: u.businessCategory || u.industryType || 'Plastic Recycling & Compounder',
+          authorizedPerson: u.contactPerson || u.name || 'Ananya Deshmukh',
+          designation: u.designation || 'Head of Sustainable Procurement',
+          email: u.email || 'industry@ecoconnect.local',
+          phone: u.phone || '+91 80 2845 9100',
+          facilityAddress: u.facilityLocation || u.address || 'Plot 42-B, Peenya Industrial Area, Phase III',
+          city: u.city || 'Bengaluru',
+          state: u.state || 'Karnataka',
+          pincode: u.pincode || '560058',
+          capacity: u.monthlyCapacityKg ? `${u.monthlyCapacityKg} kg / month` : '1,500 Metric Tons / Year',
+          polymers: u.polymers || 'PET, HDPE, PP, LDPE',
+          gstin: u.gstNumber || '29AABCU9603R1ZM',
+          panNumber: u.panNumber || 'AABCU9603R',
+          complianceValidity: 'March 31, 2027 (Active)',
+        };
+        setProfile(loaded);
+        setOriginalProfile(loaded);
+      }
+    } catch (err) {
+      console.error('Failed to load industry profile:', err);
+      setError(err.message || 'Unable to retrieve company profile from server');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.auth
-      .me()
-      .then((res) => {
-        if (res?.user) {
-          setProfile((prev) => ({
-            ...prev,
-            companyName: res.user.companyName || prev.companyName,
-            gstin: res.user.gstNumber || prev.gstin,
-            phone: res.user.phone || prev.phone,
-            facilityAddress: res.user.facilityLocation || prev.facilityAddress,
-            authorizedPerson: res.user.contactPerson || prev.authorizedPerson,
-          }));
-        }
-      })
-      .catch(() => {});
+    fetchProfile();
   }, []);
 
   const handleChange = (e) => {
@@ -60,25 +91,63 @@ export default function IndustryCompanyProfile({ onShowToast }) {
     setProfile((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleCancel = () => {
+    if (originalProfile) {
+      setProfile(originalProfile);
+    }
+    setIsEditing(false);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
-    setIsSaved(true);
+    setSaving(true);
+    setError(null);
+
     try {
-      await api.auth.updateProfile({
+      const payload = {
         companyName: profile.companyName,
-        gstNumber: profile.gstin,
+        businessCategory: profile.businessCategory,
+        industryType: profile.businessCategory,
+        contactPerson: profile.authorizedPerson,
+        designation: profile.designation,
         phone: profile.phone,
         facilityLocation: profile.facilityAddress,
-        contactPerson: profile.authorizedPerson,
-      });
+        address: profile.facilityAddress,
+        city: profile.city,
+        state: profile.state,
+        pincode: profile.pincode,
+        polymers: profile.polymers,
+        gstNumber: profile.gstin,
+        panNumber: profile.panNumber,
+      };
+
+      const res = await api.auth.updateProfile(payload);
+      if (res?.user) {
+        setOriginalProfile({ ...profile });
+      }
+
+      setSavedSuccess(true);
+      setIsEditing(false);
+      if (onShowToast) {
+        onShowToast('Company profile details saved successfully to database!');
+      }
+      setTimeout(() => setSavedSuccess(false), 3500);
     } catch (err) {
-      console.warn('Could not persist profile to server:', err);
+      console.error('Could not persist profile to server:', err);
+      setError(err.message || 'Failed to update company profile');
+    } finally {
+      setSaving(false);
     }
-    if (onShowToast) {
-      onShowToast('Company profile details saved successfully to database!');
-    }
-    setTimeout(() => setIsSaved(false), 3500);
   };
+
+  if (loading) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center space-y-3 text-slate-500">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <p className="text-sm font-medium">Loading verified company profile...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl">
@@ -94,13 +163,32 @@ export default function IndustryCompanyProfile({ onShowToast }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100/70 px-3 py-1.5 text-xs font-bold text-amber-900 ring-1 ring-amber-300">
             <ShieldCheck className="h-4 w-4 text-amber-700" />
             Verified Recycler Partner
           </span>
+
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs px-3.5 py-2 shadow-sm transition-all"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              Edit Profile
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Main Profile Card */}
       <div className="rounded-2xl bg-white border border-slate-200/80 shadow-sm overflow-hidden">
@@ -108,14 +196,14 @@ export default function IndustryCompanyProfile({ onShowToast }) {
         <div className="bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 border-b border-amber-300/70 p-6 text-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-300 text-slate-900 font-black text-2xl shadow-inner ring-2 ring-amber-400/50 shrink-0">
-              GP
+              {profile.companyName ? profile.companyName.slice(0, 2).toUpperCase() : 'GP'}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-black">{profile.companyName}</h3>
               </div>
               <p className="text-xs text-slate-600 font-medium mt-0.5">
-                {profile.businessCategory} • Peenya Industrial Cluster
+                {profile.businessCategory} • {profile.city}
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs text-slate-700">
                 <span className="flex items-center gap-1">
@@ -149,7 +237,7 @@ export default function IndustryCompanyProfile({ onShowToast }) {
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {/* Field 1: Industry ID (Replaced "CPCB EPR reg.") */}
+              {/* Field 1: Industry ID (System-controlled, read-only) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Industry ID
@@ -159,12 +247,13 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                     type="text"
                     name="industryId"
                     value={profile.industryId}
-                    onChange={handleChange}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                    disabled
+                    readOnly
+                    className="w-full rounded-xl bg-slate-100 border border-slate-200 px-4 py-2.5 text-sm font-mono font-bold text-slate-500 cursor-not-allowed shadow-inner"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <span className="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900">
-                      VERIFIED
+                      SYSTEM LOCKED
                     </span>
                   </div>
                 </div>
@@ -181,7 +270,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="companyName"
                   value={profile.companyName}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -195,7 +289,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="businessCategory"
                   value={profile.businessCategory}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -209,21 +308,50 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="gstin"
                   value={profile.gstin}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-mono font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
+                />
+              </div>
+
+              {/* PAN Number */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  PAN Number
+                </label>
+                <input
+                  type="text"
+                  name="panNumber"
+                  value={profile.panNumber}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-mono font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
               {/* Annual Processing Capacity */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Annual Processing Capacity
+                  Processing Capacity
                 </label>
                 <input
                   type="text"
                   name="capacity"
                   value={profile.capacity}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -237,7 +365,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="polymers"
                   value={profile.polymers}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
             </div>
@@ -260,20 +393,44 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="authorizedPerson"
                   value={profile.authorizedPerson}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Contact Email
+                  Designation
+                </label>
+                <input
+                  type="text"
+                  name="designation"
+                  value={profile.designation}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Contact Email (Account ID)
                 </label>
                 <input
                   type="email"
                   name="email"
                   value={profile.email}
-                  onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled
+                  readOnly
+                  className="w-full rounded-xl bg-slate-100 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-500 cursor-not-allowed shadow-inner"
                 />
               </div>
 
@@ -286,7 +443,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="phone"
                   value={profile.phone}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
             </div>
@@ -309,7 +471,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="facilityAddress"
                   value={profile.facilityAddress}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -322,7 +489,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="city"
                   value={profile.city}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -335,7 +507,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="state"
                   value={profile.state}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
 
@@ -348,7 +525,12 @@ export default function IndustryCompanyProfile({ onShowToast }) {
                   name="pincode"
                   value={profile.pincode}
                   onChange={handleChange}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white transition-all shadow-sm"
+                  disabled={!isEditing}
+                  className={`w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-all shadow-sm ${
+                    isEditing
+                      ? 'bg-white border-amber-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}
                 />
               </div>
             </div>
@@ -356,24 +538,47 @@ export default function IndustryCompanyProfile({ onShowToast }) {
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-            {isSaved ? (
+            {savedSuccess ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
                 <CheckCircle2 className="h-4 w-4" />
                 Changes saved successfully!
               </span>
             ) : (
               <span className="text-xs text-slate-400">
-                All changes reflect across procurement orders and bills of lading.
+                {isEditing ? 'Make sure all regulatory details match official documents.' : 'All changes reflect across procurement orders and bills of lading.'}
               </span>
             )}
 
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 px-6 py-2.5 text-sm font-bold text-slate-900 shadow-lg shadow-amber-400/25 hover:from-amber-500 hover:to-yellow-500 hover:shadow-xl hover:shadow-amber-400/30 transition-all active:scale-[0.98]"
-            >
-              <Save className="h-4 w-4" />
-              Save Changes
-            </button>
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 px-6 py-2.5 text-sm font-bold text-slate-900 shadow-lg shadow-amber-400/25 hover:from-amber-500 hover:to-yellow-500 hover:shadow-xl hover:shadow-amber-400/30 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Changes
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-md shadow-amber-400/20 transition-all"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit Profile
+              </button>
+            )}
           </div>
         </form>
       </div>

@@ -6,6 +6,7 @@ import ComplaintsFlow from './ComplaintsFlow';
 import PlasticCollections from './PlasticCollections';
 import PlasticInventory from './PlasticInventory';
 import IndustryOrders from './IndustryOrders';
+import MunicipalProfile from './MunicipalProfile';
 import { CheckCircle2, X } from 'lucide-react';
 
 export default function MunicipalApp({ onSwitchPortal }) {
@@ -23,13 +24,15 @@ export default function MunicipalApp({ onSwitchPortal }) {
       case 'command':
         return <MunicipalCommandHub onNavigateTab={setActiveTab} />;
       case 'complaints':
-        return <ComplaintsFlow />;
+        return <ComplaintsFlow onShowToast={showToast} />;
       case 'collections':
         return <PlasticCollections />;
       case 'inventory':
         return <PlasticInventory />;
       case 'orders':
         return <IndustryOrders />;
+      case 'profile':
+        return <MunicipalProfile onShowToast={showToast} />;
       default:
         return <MunicipalCommandHub onNavigateTab={setActiveTab} />;
     }
