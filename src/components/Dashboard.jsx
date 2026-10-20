@@ -14,22 +14,28 @@ export default function Dashboard({ walletPoints = 0, onNavigateTab }) {
   });
 
   useEffect(() => {
-    api.citizen
-      .getDashboard()
-      .then((res) => {
-        if (res?.metrics) {
-          setData({
-            recycledWeight: `${res.metrics.recycledWeightKg} kg`,
-            walletPoints: res.metrics.walletPoints,
-            resolvedIssues: `${res.metrics.resolvedIssues} Closed`,
-            nextPickup:
-              res.metrics.nextPickup && res.metrics.nextPickup !== 'Not Scheduled'
-                ? formatDate(res.metrics.nextPickup)
-                : 'Not Scheduled',
-          });
-        }
-      })
-      .catch(() => {});
+    const fetchMetrics = () => {
+      api.citizen
+        .getDashboard()
+        .then((res) => {
+          if (res?.metrics) {
+            setData({
+              recycledWeight: `${res.metrics.recycledWeightKg} kg`,
+              walletPoints: res.metrics.walletPoints,
+              resolvedIssues: `${res.metrics.resolvedIssues} Closed`,
+              nextPickup:
+                res.metrics.nextPickup && res.metrics.nextPickup !== 'Not Scheduled'
+                  ? formatDate(res.metrics.nextPickup)
+                  : 'Not Scheduled',
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 5000);
+    return () => clearInterval(interval);
   }, [walletPoints]);
 
   const metrics = [

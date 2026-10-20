@@ -5,6 +5,9 @@ import {
   getInventory,
   getInventoryTransactions,
   getMunicipalityNotifications,
+  getPickupScheduleTargets,
+  getPickupSchedule,
+  savePickupSchedule,
 } from '../controllers/municipalityController.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -29,6 +32,11 @@ router.get('/inventory/transactions', getInventoryTransactions);
 router.get('/purchase-requests', getAllPurchaseRequests);
 router.patch('/purchase-requests/:id/approve', approvePurchaseRequest);
 router.patch('/purchase-requests/:id/reject', rejectPurchaseRequest);
+
+// ── Pickup Schedule management ───────────────────────────────────────────
+router.get('/pickup-schedule/targets', getPickupScheduleTargets);
+router.get('/pickup-schedule', getPickupSchedule);
+router.post('/pickup-schedule', savePickupSchedule);
 
 // ── Order management (loading OTP verification) ──────────────────────────
 router.get('/orders', getMunicipalityOrders);

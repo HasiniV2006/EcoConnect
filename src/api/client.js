@@ -155,6 +155,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    getPickupScheduleTargets: () => request('/municipality/pickup-schedule/targets'),
+    getPickupSchedule: (params = '') =>
+      request(`/municipality/pickup-schedule${params ? `?${params}` : ''}`),
+    savePickupSchedule: (data) =>
+      request('/municipality/pickup-schedule', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   // ── Industry
